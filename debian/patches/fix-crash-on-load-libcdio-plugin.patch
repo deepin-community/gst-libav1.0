@@ -1,0 +1,15 @@
+Index: gst-libav1.0-1.15.0.1+git20180723+db823502/ext/libav/gstavdemux.c
+===================================================================
+--- gst-libav1.0-1.15.0.1+git20180723+db823502.orig/ext/libav/gstavdemux.c
++++ gst-libav1.0-1.15.0.1+git20180723+db823502/ext/libav/gstavdemux.c
+@@ -1984,6 +1984,10 @@ gst_ffmpegdemux_register (GstPlugin * pl
+     gint rank;
+     gboolean register_typefind_func = TRUE;
+ 
++    if (!in_plugin->name || !in_plugin->long_name) {
++        continue;
++    }
++
+     GST_LOG ("Attempting to handle libav demuxer plugin %s [%s]",
+         in_plugin->name, in_plugin->long_name);
+ 
