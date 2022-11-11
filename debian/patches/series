@@ -1,7 +1,1 @@
 00_plugin-dependencies.patch
-01_disable-1.15-api.patch
-02_drop-1.15-dependency.patch
-03_avmux-Place-pva-case-after-generic-case.patch
-04_decoders-fix-draining.patch
-fix-crash-on-load-libcdio-plugin.patch
-uniontech-TEMP-0000000-D8C3F4.patch
