@@ -483,7 +483,11 @@ gst_ffmpegdemux_do_seek (GstFFMpegDemux * demux, GstSegment * segment)
     GST_LOG_OBJECT (demux, "keyframeidx: %d", keyframeidx);
 
     if (keyframeidx >= 0) {
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(58,78,0)
+      fftarget = avformat_index_get_entry (stream, keyframeidx)->timestamp;
+#else
       fftarget = stream->index_entries[keyframeidx].timestamp;
+#endif
       target = gst_ffmpeg_time_ff_to_gst (fftarget, stream->time_base);
 
       GST_LOG_OBJECT (demux,
@@ -951,6 +955,10 @@ gst_ffmpegdemux_get_stream (GstFFMpegDemux * demux, AVStream * avstream)
     case AVMEDIA_TYPE_VIDEO:
       templ = oclass->videosrctempl;
       num = demux->videopads++;
+      /* These are not part of the codec parameters we built the
+       * context from */
+      ctx->framerate.num = avstream->r_frame_rate.num;
+      ctx->framerate.den = avstream->r_frame_rate.den;
       break;
     case AVMEDIA_TYPE_AUDIO:
       templ = oclass->audiosrctempl;
@@ -1218,6 +1226,8 @@ gst_ffmpegdemux_open (GstFFMpegDemux * demux)
   GstTagList *tags;
   GstEvent *event;
   GList *cached_events;
+  GstQuery *query;
+  gchar *uri = NULL;
 
   /* to be sure... */
   gst_ffmpegdemux_close (demux);
@@ -1231,9 +1241,32 @@ gst_ffmpegdemux_open (GstFFMpegDemux * demux)
   if (res < 0)
     goto beach;
 
+  query = gst_query_new_uri ();
+  if (gst_pad_peer_query (demux->sinkpad, query)) {
+    gchar *query_uri, *redirect_uri;
+    gboolean permanent;
+
+    gst_query_parse_uri (query, &query_uri);
+    gst_query_parse_uri_redirection (query, &redirect_uri);
+    gst_query_parse_uri_redirection_permanent (query, &permanent);
+
+    if (permanent && redirect_uri) {
+      uri = redirect_uri;
+      g_free (query_uri);
+    } else {
+      uri = query_uri;
+      g_free (redirect_uri);
+    }
+  }
+  gst_query_unref (query);
+
+  GST_DEBUG_OBJECT (demux, "Opening context with URI %s", GST_STR_NULL (uri));
+
   demux->context = avformat_alloc_context ();
   demux->context->pb = iocontext;
-  res = avformat_open_input (&demux->context, NULL, oclass->in_plugin, NULL);
+  res = avformat_open_input (&demux->context, uri, oclass->in_plugin, NULL);
+
+  g_free (uri);
 
   GST_DEBUG_OBJECT (demux, "av_open_input returned %d", res);
   if (res < 0)
@@ -1473,8 +1506,14 @@ gst_ffmpegdemux_loop (GstFFMpegDemux * demux)
     goto drop;
 #endif
 
-  if (GST_CLOCK_TIME_IS_VALID (timestamp))
-    timestamp -= demux->start_time;
+  if (GST_CLOCK_TIME_IS_VALID (timestamp)) {
+    /* start_time should be the ts of the first frame but it may actually be
+     * higher because of rounding when converting to gst ts. */
+    if (demux->start_time >= timestamp)
+      timestamp = 0;
+    else
+      timestamp -= demux->start_time;
+  }
 
   /* check if we ran outside of the segment */
   if (demux->segment.stop != -1 && timestamp > demux->segment.stop)
@@ -1988,9 +2027,14 @@ gst_ffmpegdemux_register (GstPlugin * plugin)
         in_plugin->name, in_plugin->long_name);
 
     /* no emulators */
-    if (!strncmp (in_plugin->long_name, "raw ", 4) ||
-        !strncmp (in_plugin->long_name, "pcm ", 4) ||
-        !strcmp (in_plugin->name, "audio_device") ||
+    if (in_plugin->long_name != NULL) {
+      if (!strncmp (in_plugin->long_name, "raw ", 4) ||
+          !strncmp (in_plugin->long_name, "pcm ", 4)
+          )
+        continue;
+    }
+
+    if (!strcmp (in_plugin->name, "audio_device") ||
         !strncmp (in_plugin->name, "image", 5) ||
         !strcmp (in_plugin->name, "mpegvideo") ||
         !strcmp (in_plugin->name, "mjpeg") ||
@@ -2098,7 +2142,8 @@ gst_ffmpegdemux_register (GstPlugin * plugin)
         !strcmp (in_plugin->name, "ivf") ||
         !strcmp (in_plugin->name, "brstm") ||
         !strcmp (in_plugin->name, "bfstm") ||
-        !strcmp (in_plugin->name, "gif") || !strcmp (in_plugin->name, "dsf"))
+        !strcmp (in_plugin->name, "gif") ||
+        !strcmp (in_plugin->name, "dsf") || !strcmp (in_plugin->name, "iff"))
       rank = GST_RANK_MARGINAL;
     else {
       GST_DEBUG ("ignoring %s", in_plugin->name);

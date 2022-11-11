@@ -1,3 +1,1554 @@
+=== release 1.18.5 ===
+
+2021-09-08 20:04:03 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.18.5
+
+2021-04-29 21:32:18 -0400  Doug Nazar <nazard@nazar.ca>
+
+	* ext/libav/gstavmux.c:
+	  avmux: Blacklist ttml subtitles
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/140>
+
+2021-06-03 06:01:30 -0400  Doug Nazar <nazard@nazar.ca>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Fix size of linesize parameter
+	  Although avcodec_align_dimensions2() only copies 4 ints, it expects
+	  a buffer of at least AV_NUM_DATA_POINTERS (8) ints.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/136>
+
+2021-04-24 10:04:23 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Take into account coded_height for pool
+	  Failure to do this would cause the decoders to constantly request a new
+	  bufferpool thinking the height had changed ... whereas it hadn't.
+	  Fixes #95
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/132>
+
+2021-04-13 01:07:15 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: fix build with FFmpeg 4.4
+	  Direct access to avstream->index_entries was removed
+	  in favour of the newly added avformat_index_get_entry()
+	  and friends.
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gst-libav/-/issues/85
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/129>
+
+2021-01-19 13:19:31 -0800  Nicholas Jackson <nicholas.jackson@zii.aero>
+
+	* ext/libav/gstavmux.c:
+	  avmux: fix segfault when a plugin's long_name is NULL
+	  Some plugins register an empty long_name field.  Check for this
+	  before calling strcmp to avoid a crash.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/128>
+
+2021-03-15 19:49:26 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development
+
+=== release 1.18.4 ===
+
+2021-03-15 17:49:43 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.18.4
+
+2021-03-03 10:51:04 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavcodecmap.c:
+	  avcodecmap: Don't try converting channel layouts with more than 64 channels
+	  We only support up to 64 channels in GStreamer with a specific layout so
+	  it's safe to assume a NONE layout in this case.
+	  Also the arrays of channel positions are allocated everywhere with 64
+	  elements so don't try setting more than 64 to NONE as that will cause
+	  stack corruptions and similar memory safety issues.
+	  Thanks to Natalie Silvanovich for reporting this issue.
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gst-libav/-/issues/92
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/121>
+
+2020-12-02 15:43:15 +1100  Matthew Waters <matthew@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: take the maximum of the height/coded_height
+	  Otherwise, some h.264 streams (particularly with cropping information)
+	  may cause memory corruption after a renegotiation to a smaller size when
+	  decoded and then ffmpeg writes past the end of the buffer.
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gst-libav/-/issues/80
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/118>
+
+2021-01-28 06:11:14 +0000  Matthew Waters <matthew@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  viddec: don't configure and incorrect buffer pool when receiving a gap event
+	  Scenario is this:
+	  1. libav receives enough data to want a buffer with get_buffer2()
+	  which wants a buffer pool with a certain format, say Y42B but does
+	  not negotiate and therefore GstVideoDecoder does not have any output
+	  state configured
+	  2. A gap event is received which GstVideoDecoder wants to forward.  It
+	  needs caps to forward the gap event so attempts to negotiate with some
+	  default information which chooses e.g. I420 and overwrites the
+	  previously configured bufferpool decided on by get_buffer2()
+	  3. There is a mismatch between what ensure_internal_pool() check for
+	  consistency and what decide_allocation() sets when overriding the
+	  internal pool with the downstream pool.
+	  4. FFMpeg then requests a Y42B buffer from an I420 pool and predictably
+	  crashes writing past the contents of the buffer
+	  This is fixed by keeping track of the internal pool states correctly.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/117>
+
+2021-01-14 02:17:38 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development
+
+=== release 1.18.3 ===
+
+2021-01-13 21:11:49 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.18.3
+
+2020-12-30 01:15:16 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: Drain decoder on decoding failure
+	  ... and call finish_frame() so that baseclass can reset internal
+	  status. Otherwise baseclass will keep holding the status for
+	  decoding failed frame which will result in outputting buffer with
+	  wrong timestamp.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/113>
+
+2020-12-06 23:57:06 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development
+
+=== release 1.18.2 ===
+
+2020-12-06 13:24:36 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.18.2
+
+2020-10-27 06:33:29 -0400  Arun Raghavan <arun@asymptotic.io>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: Check planar-ness of frame rather than context
+	  The check seems to be to present to verify that the decoded frame
+	  matches the format we expect. The actual check for the layout of the
+	  frame was being performed against the context instead.
+	  The check fails at least for avdec_aptx_hd, where the AVCodecContext has
+	  the sample format set to AV_SAMPLE_FMT_NONE.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/108>
+
+2020-10-27 12:34:39 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development
+
+=== release 1.18.1 ===
+
+2020-10-26 11:15:11 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.18.1
+
+2020-10-06 03:47:42 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavaudenc.h:
+	* ext/libav/gstavutils.h:
+	* ext/libav/gstavvidenc.c:
+	* ext/libav/gstavvidenc.h:
+	  avaudenc/avvidenc: Reopen encoding session if it's required
+	  Since the commit https://git.ffmpeg.org/gitweb/ffmpeg.git/commit/22b25b3ea5c,
+	  ffmpeg will not clear draning flag for encoder by avcodec_flush_buffers() API
+	  by default. Allowed case is only if encoder has AV_CODEC_CAP_ENCODER_FLUSH
+	  capability flag. If it's not supported, we should re-open encoding
+	  session, otherwise ffmpeg encoder will keep returning AVERROR_EOF
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/102>
+
+2020-10-01 11:18:58 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: Call avcodec_flush_buffers() after draining to allow accepting new input again
+	  This is already done in all other codec elements.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/101>
+
+2020-09-30 16:13:28 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  avauddec/audenc/videnc: Don't return GST_FLOW_EOS when draining
+	  Same behaviour as for avviddec now. FFmpeg will return AVERROR_EOF when it's
+	  completely drained but we should not return that here or otherwise
+	  upstream will receive EOS and not forward us more data.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/101>
+
+2020-09-16 03:13:09 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Don't return GST_FLOW_EOS from drain()/finish()
+	  AVERROR_EOF means that it's fully drained, but it doesn't
+	  mean that that end of stream.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/96>
+
+2020-09-15 02:12:23 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: Ensure finish_subframe() and finish_frame() are paired
+	  audiodecoder baseclass implementation is expecting that
+	  finish_subframe() is followed by finish_frame() in order clear
+	  its internal state related to subframe.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/96>
+
+2020-09-14 14:30:35 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: Forward flow returns from draining instead of assuming OK
+	  It might be useful for upstream to know that draining/finishing didn't
+	  succeed, and why.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/96>
+
+2020-09-14 14:24:51 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Forward flow returns from draining instead of assuming OK
+	  It might be useful for upstream to know that draining/finishing didn't
+	  succeed, and why.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/96>
+
+2020-09-09 08:55:28 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: Avoid dropping non-OK flow return
+	  When sucessfully finishing out frames (or finishing configuration), we must make
+	  sure we don't override any failing GstFlowReturn that might have been detected
+	  previously.
+	  Failure to do this would result in not propagating not-linked, flushing,
+	  etc...
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/96>
+
+2016-09-26 20:06:54 -0400  Olivier Crête <olivier.crete@collabora.com>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	  avcodecmap: Enable 24 bit WMA Lossless decoding
+	  This now works with not so recent ffmpeg.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/95>
+
+2020-09-08 17:44:35 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development
+
+=== release 1.18.0 ===
+
+2020-09-08 00:08:12 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* .gitlab-ci.yml:
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.18.0
+
+2020-09-07 12:15:17 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavviddec.c:
+	  Update for gst_video_transfer_function_*() function renaming
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/89>
+
+=== release 1.17.90 ===
+
+2020-08-20 16:14:50 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.17.90
+
+2020-08-03 19:28:29 +0300  Jordan Petridis <jordan@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcfg.c:
+	  gstavcfg.c: fix max->min typo in limits and implict double conversion
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/86>
+
+2020-07-23 15:37:05 +0300  Jordan Petridis <jordan@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	  Revert "docs: update plugins doc cache"
+	  This reverts commit d1b20eb6558b5188fe539a2aba3dc15630e703b0.
+	  See https://gitlab.freedesktop.org/gstreamer/gst-ci/-/merge_requests/324
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/85>
+
+2020-07-03 12:45:44 +0300  Jordan Petridis <jordan@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	  docs: update plugins doc cache
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/80>
+
+2020-07-08 17:23:12 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	* scripts/extract-release-date-from-doap-file.py:
+	  meson: set release date from .doap file for releases
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/84>
+
+2020-07-07 00:33:22 +0300  Vivia Nikolaidou <vivia@ahiru.eu>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Fix typo that duplicated closed caption meta
+	  We examined the output buffer, instead of the input buffer, for
+	  existence of cc meta.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/83>
+
+2020-07-02 12:28:34 +0300  Vivia Nikolaidou <vivia@ahiru.eu>
+
+	* ext/libav/gstavviddec.c:
+	  gstavviddec: Only allow a single closed caption meta
+	  Following discussion in
+	  https://gitlab.freedesktop.org/gstreamer/gst-plugins-bad/-/merge_requests/1396#note_556068
+	  While it is technically possible to store multiple closed caption metas
+	  in the same buffer, we don't currently do that anywhere and for
+	  H264/MPEG2 both parts have to be stored in the same packet, and also the
+	  number of CC bytes you can store per frame is rather limited. This
+	  restriction might be relaxed later once we figured out how to do it
+	  without breaking things.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/82>
+
+2020-07-03 02:04:01 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development
+
+=== release 1.17.2 ===
+
+2020-07-03 00:33:33 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.17.2
+
+2020-06-30 18:33:56 +0200  Matej Knopp <matej.knopp@gmail.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: fix buffer leak when send packet failed
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/81>
+
+2020-06-26 13:11:56 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	  avcodecmap: Add support for SpeedHQ video codec
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/79>
+
+2020-06-23 00:07:26 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* docs/meson.build:
+	  meson: mark plugins cache target as always stale
+
+2020-06-19 22:59:39 -0400  Thibault Saunier <tsaunier@igalia.com>
+
+	* docs/gst_plugins_cache.json:
+	  doc: Stop documenting properties from parents
+
+2020-06-18 22:16:30 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavmux.c:
+	  avmux: zero-initialize packets
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/76>
+
+2020-06-20 00:28:26 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development
+
+=== release 1.17.1 ===
+
+2020-06-19 19:24:14 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.17.1
+
+2020-06-09 15:33:51 -0400  Thibault Saunier <tsaunier@igalia.com>
+
+	* docs/gst_plugins_cache.json:
+	  docs: Update plugins cache
+
+2020-06-08 09:44:43 -0400  Thibault Saunier <tsaunier@igalia.com>
+
+	* docs/gst_plugins_cache.json:
+	  docs: Update plugins cache
+
+2020-06-06 00:43:02 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	* ext/libav/gstavdeinterlace.c:
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  plugins: uddate gst_type_mark_as_plugin_api() calls
+
+2020-06-03 18:35:32 -0400  Thibault Saunier <tsaunier@igalia.com>
+
+	* docs/meson.build:
+	  doc: Require hotdoc >= 0.11.0
+
+2020-05-27 16:02:45 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	  docs: Update gst_plugins_cache.json
+
+2020-05-31 10:02:12 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	* ext/libav/gstavdeinterlace.c:
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  plugins: Use gst_type_mark_as_plugin_api() for all non-element plugin types
+
+2020-05-31 09:59:29 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavcodecmap.h:
+	  avcodecmap: Remove unused GstFFMpegCompliance type
+
+2020-05-27 16:30:41 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: update the context we use to determine stream's caps
+	  The discovered frame rate is only available on the AVStream
+	  itself. Updating the temporary context framerate before
+	  building caps from it seems like a pretty non-intrusive approach.
+	  Fixes #75
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/74>
+
+2020-05-27 16:29:27 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavcodecmap.c:
+	  avcodecmap: use framerate instead of time_base when decoding
+	  Documentation for AVCodecContext::time_base:
+	  > decoding: the use of this field for decoding is deprecated.
+	  > Use framerate instead.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/74>
+
+2020-05-09 15:20:00 +0200  Matej Knopp <matej.knopp@gmail.com>
+
+	* ext/libav/gstavaudenc.h:
+	* ext/libav/gstavcodecmap.h:
+	* ext/libav/gstavviddec.h:
+	  gstlibav: minor fixes for header files
+	  Move G_BEGIN_DECLS below includes and add missing include
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/71>
+
+2020-05-08 19:16:41 +0200  Matej Knopp <matej.knopp@gmail.com>
+
+	* ext/libav/gstavviddec.c:
+	  gstavviddec: only set range when actually reported by avcodec
+	  otherwise we get incomplete colorimetry that video-info complains about
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/70>
+
+2020-04-30 18:12:19 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* README:
+	* README.md:
+	  README: Convert to markdown, clarify licensing
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/68>
+
+2020-04-30 17:13:00 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* COPYING:
+	* COPYING.LIB:
+	  All code in this repository is now LGPL-2.1+
+	  Starting with 1.17, we will not ship a copy of FFmpeg in our release
+	  tarballs, and all the remaining code is LGPL2.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gst-libav/-/merge_requests/68>
+
+2020-04-15 15:00:02 +0800  Haihao Xiang <haihao.xiang@intel.com>
+
+	* ext/libav/gstavmux.c:
+	  avmux: avoid to use unintialized variable
+	  Without this fix, running the command below will get an error randomly.
+	  Example:
+	  gst-launch-1.0 videotestsrc ! vp9enc ! avmux_ivf ! fakesink
+	  ERROR: pipeline doesn't want to preroll.
+	  0:00:02.388528491 30148 0x5601b424a370 ERROR                  libav :0::
+	  Tag [1]V[0][0] incompatible with output codec id '167' (VP90)
+
+2020-03-11 18:26:39 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Update for video-hdr struct change
+	  See the change of -base https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/-/merge_requests/594
+
+2020-01-27 14:21:48 -0800  Julien Isorce <jisorce@oblong.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: handle GST_VIDEO_MULTIVIEW_MODE_MONO
+	  Otherwise videotestsrc ! avenc_libx265 ! fakesink
+	  outputs `Unsupported multiview mode - no mapping in libav`
+
+2020-01-24 16:14:28 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavcodecmap.c:
+	  avcodecmap: Add some more comments about the assumptions in the ffmpeg code about H264/H265/AAC
+
+2020-01-24 13:04:46 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavcodecmap.c:
+	  avdemux: Only set stream-format for H264/H265/AAC when we have a context
+	  Otherwise we don't know yet whether we'll have extradata/codec_data, so
+	  can't decide on the stream-format yet.
+
+2020-01-15 14:36:19 +0800  Haihao Xiang <haihao.xiang@intel.com>
+
+	* ext/libav/gstavcodecmap.c:
+	  avivf_mux: support VP9 and AV1
+	  Besides vp8, ff_ivf_muxer supports VP9 and AV1
+
+2020-01-23 10:03:40 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavcodecmap.c:
+	  avcodecmap: Set AAC/H264/H265 stream-format for demuxer/encoder situations if no codec_data is provided
+	  This fixes output of the above formats from demuxers.
+
+2020-01-23 09:45:59 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: Pass the URI from the URI query to avformat_open_input()
+	  Some demuxers make use of it in various ways, for example the HLS
+	  demuxer.
+
+2019-12-19 17:58:56 +0100  Alicia Boya García <ntrrgc@gmail.com>
+
+	* ext/libav/gstavviddec.c:
+	  gstavviddec: Limit default number of decoder threads
+	  When the `max-threads` property is not specified, GStreamer defaults to
+	  the amount of CPU threads in the system.
+	  The number of threads used in avdec has a direct impact on the latency
+	  of the decoder, which is of as many frames as threads. Therefore, big
+	  numbers of threads can make latency levels that can be problematic in
+	  some applications.
+	  For this reason, ffmpeg emits a warning when more than 16 threads are
+	  requested.
+	  This patch limits the default number of threads to 16. This affects only
+	  computers with more than 16 CPU threads when using avviddec without
+	  setting `max-threads`.
+
+2019-12-02 19:06:04 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* pkgconfig/gstreamer-plugins-libav-uninstalled.pc.in:
+	  pkgconfig: remove unused file
+	  Was never hooked up to meson build it seems, and only ever used
+	  by the uninstalled autotools dev env to locate gst-libav plugins
+	  for use in unit tests in other modules.
+
+2019-11-29 09:25:24 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: Fix error propagation
+	  Instead of returning the default return value (GST_FLOW_OK), actually
+	  return an error one (res vs ret).
+
+2019-11-04 15:39:59 +0100  Kevin JOLY <kevin.joly@heig-vd.ch>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: Fix segmentation fault if long_name is NULL
+	  Some plugins (like libcdio) registers empty long_name field. Calling strncmp on this field leads to a segmentation fault.
+	  Signed-off-by: Kevin Joly <joly.kevin25@gmail.com>
+
+2019-10-29 11:43:05 +0900  Seungha Yang <seungha.yang@navercorp.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Fix huge leak caused by circular reference
+	  AVBufferRef -> GstFFMpegVideoDecVideoFrame -> GstVideoCodecFrame -> AVBufferRef
+	  Instead of holding additional ref there, set read-only which would not be
+	  reused by ff_reget_buffer()
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gst-libav/issues/63
+
+2019-10-25 01:09:08 +0900  Seungha Yang <seungha.yang@navercorp.com>
+
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  avvideenc,avvidedec: Filtering hardware en/decoder by flag
+	  ... instead of filtering them by hardcoded string compare.
+
+2019-10-24 00:25:28 +0900  Seungha Yang <seungha.yang@navercorp.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Enforce allocate new AVFrame per input frame
+	  ... if ffmpeg would reuse the allocated AVBuffer. Reused AVFrame by
+	  the ffmpeg seems to break our decoding flow since the reused AVFrame
+	  holds the initial opaque data (GstVideoCodecFrame in this case), so
+	  we couldn't trace the our in/out frames.
+	  To enforce get_buffer() call per output frame, hold another reference
+	  to the AVBuffer in order to mark the AVBuffer as not writable.
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gst-libav/issues/62
+
+2019-10-13 14:33:27 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* .gitignore:
+	* .gitmodules:
+	* HACKING:
+	* Makefile.am:
+	* README:
+	* TODO:
+	* autogen.sh:
+	* common:
+	* configure.ac:
+	* docs/.gitignore:
+	* ext/Makefile.am:
+	* ext/libav/Makefile.am:
+	* gst-libs/Makefile.am:
+	* gst-libs/ext/Makefile.am:
+	* gst-libs/ext/gas-preprocessor:
+	* gst-libs/ext/libav:
+	* m4/as-slurp-ffmpeg.m4:
+	* pkgconfig/.gitignore:
+	* pkgconfig/Makefile.am:
+	* tests/Makefile.am:
+	* tests/check/.gitignore:
+	* tests/check/Makefile.am:
+	* tests/check/generic/.gitignore:
+	* tests/files/Makefile.am:
+	  Remove autotools build system
+
+2019-09-24 23:51:33 +0900  Seungha Yang <seungha.yang@navercorp.com>
+
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavviddec.c:
+	  avviddec,avcodemap: Use new helper function for map color space information
+	  ... between GStreamer and FFmpeg. Note that FFmpeg follows ISO/IEC 23001-8
+	  defined color{matrix,transfer,primaries} values.
+
+2019-09-11 15:59:42 +0000  Marc Leeman <marc.leeman@gmail.com>
+
+	* docs/meson.build:
+	  docs: do not require gst-plugins-doc-cache-generator
+	  Do not require the cache generator. This is in line with the other
+	  gstreamer modules
+
+2019-08-13 22:03:31 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: timestamp output buffers
+	  Same approach as x264enc, with the one hour offset
+
+2019-08-01 16:27:35 -0400  Doug Nazar <nazard@nazar.ca>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: Don't warn if drain is successful
+
+2019-07-18 00:20:16 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: improve latency calculation
+	  When thread_type is set to FF_THREAD_FRAME, per the documentation
+	  a latency of one frame per thread is introduced:
+	  <https://ffmpeg.org/ffmpeg-codecs.html>, search for thread_type.
+	  Additionally, we need in that case to calculate the automatic
+	  number of threads ourselves, so as to accurately calculate the
+	  latency.
+
+2018-10-06 18:51:58 +0900  Seungha Yang <seungha.yang@navercorp.com>
+
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavviddec.h:
+	  avviddec: Add thread-type property
+	  The thread-type property allows specifying preferred
+	  multithreading methods by user. Note that FF_THREAD_FRAME
+	  may introduce additional latency especially on non-filesrc usecase,
+	  since it introduces a decoding delay of (number of threads) frames.
+	  https://bugzilla.gnome.org/show_bug.cgi?id=797254
+
+2019-07-15 10:42:42 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: Close reference context before freeing it
+	  Otherwise we'll leak some memory.
+	  See https://gitlab.freedesktop.org/gstreamer/gst-libav/merge_requests/32
+
+2019-07-12 14:41:18 +0200  Knut Andre Tidemann <knutandre.tidemann@zenitel.com>
+
+	* ext/libav/gstavaudenc.c:
+	  avaudenc: fix memory leak of refcontext after finalize.
+
+2019-06-19 15:44:49 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: Also set the repeat_pict flag correctly and take the TFF flag from caps if available
+
+2019-06-19 15:43:42 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: Correctly signal interlaced input to ffmpeg when the input caps are interlaced
+	  Regression from 1e4529ced2dadbfed4ac10d639a45dbcb0660129
+
+2019-06-02 21:45:19 +0200  Niels De Graef <niels.degraef@barco.com>
+
+	* configure.ac:
+	  meson: Bump minimal GLib version to 2.44
+	  This means we can use some newer features and get rid of some
+	  boilerplate code using the G_DECLARE_* macros.
+	  As discussed on IRC, 2.44 is old enough by now to start depending on it.
+
+2019-05-29 11:49:38 +0530  Guillaume Desmottes <guillaume.desmottes@collabora.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: remove cdgraphics element
+	  It was never usable as we don't have a parser and we now have 'cdgdec'
+	  in gst-plugins-rs.
+
+2019-05-25 13:36:40 +0200  Tim-Philipp Müller <tim@centricular.com>
+
+	* configure.ac:
+	  configure: pass -Wno-attributes to fix build against broken ffmpeg headers
+	  libavutil/mem.h:342:1: error: ‘alloc_size’ attribute ignored on a function returning ‘int’
+	  av_alloc_size(2, 3) int av_reallocp_array(void *ptr, size_t nmemb, size_t size);
+	  ^~~~~~~~~~~~~
+	  Hopefully fixes build on jenkins.
+
+2019-05-24 20:35:41 +0900  Seungha Yang <seungha.yang@navercorp.com>
+
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavviddec.c:
+	  avcodecmap,avviddec: Map bt2020-10, PQ and HLG transfer functions
+	  Map more transfer functions between Gstreamer and ffmpeg
+
+2019-05-24 11:47:58 +0200  Arun Raghavan <arun@arunraghavan.net>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	  codecmap: Add caps for aptX and aptX-HD
+
+2019-05-16 09:20:56 -0400  Thibault Saunier <tsaunier@igalia.com>
+
+	* docs/gst_plugins_cache.json:
+	* docs/meson.build:
+	  docs: Stop building the doc cache by default
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gst-docs/issues/36
+
+2019-05-13 22:58:09 -0400  Thibault Saunier <tsaunier@igalia.com>
+
+	* docs/gst_plugins_cache.json:
+	  docs: Update plugins documentation cache
+
+2018-10-22 11:41:07 +0200  Thibault Saunier <tsaunier@igalia.com>
+
+	* Makefile.am:
+	* configure.ac:
+	* docs/Makefile.am:
+	* docs/gst_plugins_cache.json:
+	* docs/index.md:
+	* docs/meson.build:
+	* docs/plugins/.gitignore:
+	* docs/plugins/Makefile.am:
+	* docs/plugins/gst-libav-plugins-docs.sgml:
+	* docs/plugins/gst-libav-plugins.args:
+	* docs/plugins/gst-libav-plugins.hierarchy:
+	* docs/plugins/gst-libav-plugins.interfaces:
+	* docs/plugins/gst-libav-plugins.prerequisites:
+	* docs/plugins/gst-libav-plugins.signals:
+	* docs/plugins/gst-libav-plugins.types:
+	* docs/plugins/inspect/plugin-libav.xml:
+	* docs/plugins/scanobj-build.stamp:
+	* docs/sitemap.txt:
+	* docs/version.entities.in:
+	* ext/libav/meson.build:
+	* meson.build:
+	* meson_options.txt:
+	  docs: Port to hotdoc
+
+2019-05-05 09:38:01 +0200  Christoph Reiter <reiter.christoph@gmail.com>
+
+	* configure.ac:
+	  autotools: add bcrypt to win32 libs
+	  The included libav requires it now. Otherwise the builds fails with:
+	  CCLD     libgstlibav.la
+	  build-i686-w64-mingw32/gst-libs/ext/.libs/libavutil.a(random_seed.o): In function `av_get_random_seed':
+	  gst-libav-1.16.0/gst-libs/ext/libav/libavutil/random_seed.c:126: undefined reference to `BCryptOpenAlgorithmProvider@16'
+	  gst-libav-1.16.0/gst-libs/ext/libav/libavutil/random_seed.c:129: undefined reference to `BCryptGenRandom@16'
+	  gst-libav-1.16.0/gst-libs/ext/libav/libavutil/random_seed.c:130: undefined reference to `BCryptCloseAlgorithmProvider@8'
+	  collect2.exe: error: ld returned 1 exit status
+
+2019-02-18 20:53:58 +0900  Seungha Yang <seungha.yang@navercorp.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Extract HDR information if any
+	  Convert mastering display information (a.k.a HDR static metadata) and
+	  content light level information provided by FFMPEG to Gstreamer.
+
+2019-04-29 11:52:31 +0900  Yeongjin Jeong <yeongjin.jeong@navercorp.com>
+
+	* ext/libav/gstav.c:
+	  gstav: Use libavcodec util function for version check
+	  The version of libavutil is printed in the log instead of libavcodec
+	  because avutil_version() returns LIBAVUTIL_VERSION_INT. This can be confusing,
+	  so we should be replace it with avcodec_version().
+
+2019-04-29 15:22:52 +0900  Yeongjin Jeong <yeongjin.jeong@navercorp.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: Ensure drain even if codec has not delay capabilities
+	  There are decoders that need to be drained if they work on multi-threads,
+	  even if AV_CODEC_CAP_DELAY is not set.
+
+2019-04-29 15:02:06 +0900  Yeongjin Jeong <yeongjin.jeong@navercorp.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Ensure drain even if codec has not delay capabilities
+	  There are decoders that need to be drained if they work on multi-threads,
+	  even if AV_CODEC_CAP_DELAY is not set.
+
+2019-04-19 10:38:06 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* RELEASE:
+	* configure.ac:
+	* docs/plugins/inspect/plugin-libav.xml:
+	* meson.build:
+	  Back to development
+
+=== release 1.16.0 ===
+
+2019-04-19 00:33:22 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* configure.ac:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.16.0
+
+2019-04-19 00:33:22 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/plugins/inspect/plugin-libav.xml:
+	  Update docs
+
+2019-04-12 10:05:53 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst-libs/ext/libav:
+	  libav: Update to ffmpeg n4.1.3
+
+=== release 1.15.90 ===
+
+2019-04-11 00:34:12 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* configure.ac:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.15.90
+
+2019-04-11 00:34:12 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/plugins/gst-libav-plugins.args:
+	* docs/plugins/inspect/plugin-libav.xml:
+	  Update docs
+
+2019-04-09 16:56:20 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	  avcfg: Override type of bitrate property from int64 to int
+	  See https://gitlab.freedesktop.org/gstreamer/gst-libav/issues/41#note_142808
+	  The switch to the new ffmpeg property system changed the type of the
+	  bitrate property from int to int64, which potentially breaks many
+	  existing applications at runtime as properties are usually set via
+	  g_object_set().
+	  As such, override the type to int until GStreamer 2.0.
+
+2019-03-28 14:24:42 -0400  Aaron Boxer <aaron.boxer@collabora.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: do not add 708 caption meta if already exists
+	  (this is only used for CEA 708 raw data). another element
+	  such as mpegvideoparse may have already added the meta.
+
+2019-03-23 00:24:25 +0100  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: pass Closed Caption metadata to libav
+
+2019-02-26 00:00:33 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavauddec.h:
+	  avauddec: fix decoding of APE and Cook audio
+	  .. and other formats where ffmpeg gives us multiple
+	  subframes per input frame.
+	  Since we now support non-interleaved audio, we can't
+	  just concat buffers any more. Also, audio metas won't
+	  be combined when buffers are merged, so when we push
+	  out the combined buffer we'll look at the meta describing
+	  only the first subframe and think it covers the whole
+	  frame leading to stutter/gaps in the output.
+	  We could fix this by copying the output data into a new
+	  buffer when we merge buffers, but that's suboptimal, so
+	  let's add some API to GstAudioDecoder to push out subframes
+	  and use that instead.
+	  https://gitlab.freedesktop.org/gstreamer/gst-libav/issues/49
+
+2019-03-04 09:12:35 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* configure.ac:
+	* docs/plugins/inspect/plugin-libav.xml:
+	* meson.build:
+	  Back to development
+
+=== release 1.15.2 ===
+
+2019-02-26 11:57:15 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* configure.ac:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.15.2
+
+2019-02-26 11:57:15 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/plugins/inspect/plugin-libav.xml:
+	  Update docs
+
+2019-02-21 08:48:31 +0100  Guillaume Desmottes <guillaume.desmottes@collabora.com>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: fix negative pts if start_time is bigger than the ts
+	  The start time is supposed to be the ts of the first frame.
+	  FFmpeg uses fractions to represent timestamps and the start time may use a
+	  different base than the frame pts. So we may end up having the start
+	  time bigger than the pts because of rounding when converting to gst ts.
+	  See https://gitlab.freedesktop.org/gstreamer/gst-libav/issues/51
+	  for details.
+
+2019-02-12 17:23:55 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* configure.ac:
+	  configure: Only disable dxva2 once
+
+2019-02-12 10:57:24 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst-libs/ext/libav:
+	  Update to ffmpeg n4.1.1
+
+=== release 1.15.1 ===
+
+2019-01-17 02:21:41 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* ChangeLog:
+	* NEWS:
+	* RELEASE:
+	* configure.ac:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.15.1
+
+2019-01-17 02:21:35 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/plugins/gst-libav-plugins.args:
+	* docs/plugins/gst-libav-plugins.hierarchy:
+	* docs/plugins/gst-libav-plugins.interfaces:
+	* docs/plugins/inspect/plugin-libav.xml:
+	  Update docs
+
+2019-01-13 00:46:50 +0900  Seungha Yang <seungha.yang@navercorp.com>
+
+	* ext/libav/gstavcfg.c:
+	  avcfg: Fix AVOptionRanges leak
+	  It must be freed with av_opt_freep_ranges as documented.
+
+2018-12-05 17:24:43 -0300  Thibault Saunier <tsaunier@igalia.com>
+
+	* common:
+	  Automatic update of common submodule
+	  From ed78bee to 59cb678
+
+2018-11-15 11:29:54 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst-libs/ext/libav:
+	  libav: Update to ffmpeg n4.1
+
+2018-11-12 13:04:51 +0200  Jordan Petridis <jordan@centricular.com>
+
+	* .gitlab-ci.yml:
+	  Add Gitlab CI configuration
+	  This commit adds a .gitlab-ci.yml file, which uses a feature
+	  to fetch the config from a centralized repository. The intent is
+	  to have all the gstreamer modules use the same configuration.
+	  The configuration is currently hosted at the gst-ci repository
+	  under the gitlab/ci_template.yml path.
+	  Part of https://gitlab.freedesktop.org/gstreamer/gstreamer-project/issues/29
+
+2018-11-08 16:33:57 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavcodecmap.c:
+	  codecmap: Add mapping for Voxware metasound
+	  Allows actually decoding such streams :)
+
+2018-11-05 10:22:19 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst-libs/ext/libav:
+	  libav: Update to ffmpeg n4.0.3
+
+2018-11-05 05:40:03 +0000  Matthew Waters <matthew@centricular.com>
+
+	* .gitmodules:
+	  Update common submodule location
+	  Remove the git directory
+
+2018-11-05 13:17:08 +0800  Haihao Xiang <haihao.xiang@intel.com>
+
+	* .gitmodules:
+	* gst-libav.doap:
+	  Clone the code from gitlab
+	  This fixes https://gitlab.freedesktop.org/gstreamer/gst-libav/issues/43
+
+2018-10-29 14:31:52 +0000  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* meson.build:
+	  meson: Remove leftover debug logging
+
+2018-10-16 04:08:57 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	  avcfg: Ensure that ternary operator always evaluates to int64
+	  When building with MSVC, if the 3rd operator is a double, the entire
+	  expression always promoted double, and is then cast to int64.
+	  When TRUE, this evaluates to (gint64) (gdouble) (INT64_MAX)
+	  which overflows to INT64_MIN on MSVC, but not on C99 compilers.
+	  This causes us to fail the g_return_if_fail inside g_param_spec_int64
+	  when built with MSVC.
+
+2018-10-12 19:20:51 +0530  Arun Raghavan <arun@arunraghavan.net>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: Expose IFF container support
+	  This exposes support for the "iff" demuxer. This is a general purpose
+	  format, and the reason to expose this now is to allow reading DSD data
+	  (which is supported via a variant called DSDIFF).
+	  More information at:
+	  https://wiki.multimedia.cx/index.php?title=IFF
+	  https://www.loc.gov/preservation/digital/formats/fdd/fdd000245.shtml
+
+2018-10-09 18:07:09 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* ext/libav/meson.build:
+	* meson.build:
+	  meson: Generate a pkgconfig file for gstlibav
+	  This matches all other plugins in the other gstreamer repos. This is
+	  also necessary for generating the correct libtool archive (.la) files
+	  in Cerbero which are needed for static linking on Android and iOS.
+
+2018-10-08 20:55:08 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  meson: use new 'python' module instead of deprecated 'python3' one
+	  https://github.com/mesonbuild/meson/pull/4169
+
+2018-10-01 16:13:29 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* meson.build:
+	  meson: Don't export symbols from linked static libraries
+	  We don't want to export any symbols from the ffmpeg static libraries
+	  we link to when building inside Cerbero. In the Autotools build, we
+	  pass -export-symbols-regex to libtool which ensures this for us.
+
+2018-09-21 16:01:53 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Remove unneeded check
+	  frame is always valid in this function (but wasn't before the
+	  refactoring from a few months ago).
+	  CID #1439540
+
+2018-09-21 11:30:58 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	  avcfg: Simplify code
+	  The existence of 'opt' is checked, the remainder of the code can therefore
+	  rely on it being valid.
+	  CID #1439537
+
+2018-08-15 19:33:29 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* gst-libs/ext/libav:
+	  libav: update internal snapshot to ffmpeg n4.0.2
+
+2018-07-31 18:35:22 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavviddec.c:
+	  decoders: fix draining
+	  https://bugzilla.gnome.org/show_bug.cgi?id=796900
+
+2018-07-03 13:15:54 +0200  Georg Ottinger <g.ottinger@gmx.at>
+
+	* ext/libav/gstavcodecmap.c:
+	  avmux: Place pva case after generic case
+	  In the function gst_ffmpeg_formatid_get_codecids() in the if / else if
+	  construct the special case !strcmp (format_name, "pva") should be
+	  handled before the generic case (plugin->audio_codec !=
+	  AV_CODEC_ID_NONE) || (plugin->video_codec != AV_CODEC_ID_NONE)
+	  This patch fixes the ordering.
+	  I stumbled accorss this issue while adding a new format to
+	  gst_ffmpeg_formatid_get_codecids()
+	  https://bugzilla.gnome.org/show_bug.cgi?id=796738
+
+2018-07-23 16:16:10 +0300  George Kiagiadakis <george.kiagiadakis@collabora.com>
+
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavcodecmap.h:
+	  avauddec: add support for decoding in non-interleaved layout
+	  This removes the internal interleave loop and always negotiates
+	  the native output layout of the libav decoder. Users can use
+	  audioconvert to interleave if necessary.
+	  Special care has been taken to leave the encoder unaffected by
+	  the changes in avcodecmap, since GstAudioEncoder doesn't support
+	  the non-interleaved layout yet.
+	  https://bugzilla.gnome.org/show_bug.cgi?id=705977
+
+2018-07-18 19:41:50 +0900  Seungha Yang <seungha.yang@navercorp.com>
+
+	* ext/libav/gstav.c:
+	* ext/libav/gstav.h:
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavviddec.c:
+	  libav: Fix symbol redefine build error
+	  https://bugzilla.gnome.org/show_bug.cgi?id=796827
+
+2018-07-18 15:43:41 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ext/libav/gstav.c:
+	* ext/libav/gstav.h:
+	  Remove obsolete #if 0-ed code
+
+2018-07-16 23:47:45 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* configure.ac:
+	* ext/Makefile.am:
+	* ext/libswscale/Makefile.am:
+	* ext/libswscale/gstffmpegscale.c:
+	  Remove swscale plugin code
+	  This has been disabled for 5.5 years, time to remove it.
+
+2018-07-16 19:45:35 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* gst-libs/ext/libav:
+	  libav: Update to ffmpeg release/4.0 HEAD
+
+2018-07-16 08:44:45 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	  avcfg: Properly initalize GValue
+	  .. to the expected property value type.
+
+2018-07-13 18:03:27 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	  avcfg: actually remove call to g_object_getv
+	  (Sorry about that)
+
+2018-07-13 17:24:07 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavviddec.c:
+	  av*dec: Ignore decoding errors
+	  We were ignoring these before the port to 4.0, interpreting them
+	  as GST_FLOW_ERROR / GST_ELEMENT_ERROR causes check failures.
+	  We should start using GST_*_DECODER_ERROR in latter commits,
+	  for now simply restore the previous behaviour.
+
+2018-07-13 17:21:25 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	  avcfg: use g_object_get_property, not g_object_getv
+	  I simply confused those two, we didn't need g_object_getv
+	  here anyway.
+
+2018-07-12 22:05:27 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	  avcfg: ignore some generic properties
+	  We expose profile, level and colorimetry / colorspaces through
+	  caps.
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-12 21:57:57 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	  avcfg: add skip support to overrides system
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-04 00:21:45 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* meson.build:
+	  meson: add FFmpeg meson as a fallback
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-04 00:18:44 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  auddec: fix luck-based sinkpad access
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-02 17:55:00 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* configure.ac:
+	* meson.build:
+	  Update ffmpeg version requirements
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-02 17:39:30 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavaudioresample.c:
+	* ext/libav/gstavscale.c:
+	  Remove obsolete scale and resample sources
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-02 17:38:13 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* configure.ac:
+	  configure: update libav configure args
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-02 17:31:08 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* gst-libs/ext/libav:
+	  libav: Update to n4.0.1 release
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-02 04:14:09 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* meson.build:
+	  meson: stop ignoring deprecation warnings!
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-02 04:12:36 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: port to send_frame / receive_packet
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-02 04:05:19 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: fix invalid alignment calculations.
+	  avcodec_align_dimensions2 uses context->pix_fmt to make its
+	  calculations, we thus need to make sure it is adequately set
+	  when calling it.
+	  Fixes:
+	  gst-launch-1.0 videotestsrc ! video/x-raw, width=1920, height=1080 \
+	  ! avenc_mpeg4 ! avdec_mpeg4 ! xvimagesink
+	  This showed invalid writes under valgrind, then segfault.
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-01 17:09:05 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavaudenc.c:
+	  avaudenc: port to send_frame / receive_packet
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-01 02:34:41 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavmux.c:
+	  avmux: fix remaining warnings
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-01 02:23:06 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavauddec.h:
+	  avauddec: fix remaining warnings
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-01 02:21:46 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: port to new decoding API
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-30 23:28:31 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavaudenc.c:
+	  avaudenc: further cleanup
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-30 23:27:06 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstav.c:
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavaudenc.h:
+	* ext/libav/gstavcfg.c:
+	* ext/libav/gstavcfg.h:
+	* ext/libav/gstavvidenc.c:
+	  avaudenc: install options generically
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-30 02:18:43 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavviddec.h:
+	  avviddec: fix signed/unsigned comparisons
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-30 02:14:33 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avvidec: port to new decoding API
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-29 21:54:11 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstav.c:
+	  gstav: stop calling deprecated registration methods
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-29 21:46:00 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  auddec: stop using deprecated getters
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-29 21:38:50 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavmux.c:
+	  av_oformat_next (deprecated) -> av_muxer_iterate
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-29 21:37:06 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavdemux.c:
+	  av_iformat_next (deprecated) -> av_demuxer_iterate
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-29 21:21:30 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: remove obsolete version check
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-29 21:20:36 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  av_codec_next (deprecated) -> av_codec_iterate
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-29 20:59:46 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: port to AVCodecParameters
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-29 20:37:14 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavmux.c:
+	  avmux: port to AVCodecParameters
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-29 04:52:02 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavdeinterlace.c:
+	* ext/libav/gstavdemux.c:
+	* ext/libav/gstavutils.c:
+	* ext/libav/gstavutils.h:
+	  Remove all uses of AVPicture
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-07-02 17:10:03 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavaudenc.c:
+	  avaudenc: remove obsolete setting of rc_strategy
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-06-27 20:41:37 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavcfg.c:
+	* ext/libav/gstavcfg.h:
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavvidenc.c:
+	* ext/libav/gstavvidenc.h:
+	  Refactor avcfg / avvidenc
+	  We were previously installing hardcoded properties for all
+	  video encoders, refactor to instead use FFmpeg's AVOption API.
+	  avvidenc still exposes a few properties related to the pass
+	  mechanism: while the AVOption API allows specifying both passes
+	  as flags at the same time, this is not practical in GStreamer's
+	  context, where passes need to be run separately using a stats file.
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-04-30 16:02:21 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Stop using deperated EDGE API
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-04-30 15:54:44 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavcfg.c:
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavcodecmap.h:
+	* ext/libav/gstavscale.c:
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  Use AV_ namespace for all CODEC_ macro
+	  The remaining use of CODEC_ are codec flags that has been moved into the
+	  new codec private properties or have been deperated. Will be fixed in
+	  later patches.
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-04-30 15:41:40 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavviddec.c:
+	  Use AV_ namespace for INPUT_BUFFER_PADDING_SIZE
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-04-30 15:37:50 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* ext/libav/gstav.c:
+	  Don't include deprecated avfiltergraph.h header
+	  https://bugzilla.gnome.org/show_bug.cgi?id=792900
+
+2018-05-31 17:28:44 +0800  Roland Jon <rlandjon@gmail.com>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: fix memory leaks
+	  https://bugzilla.gnome.org/show_bug.cgi?id=796452
+
+2018-05-11 14:24:03 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavauddec.h:
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavviddec.h:
+	* ext/libav/gstavvidenc.c:
+	* ext/libav/gstavvidenc.h:
+	  libav: Switch to common include
+
+2018-05-11 14:19:42 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavmux.c:
+	  avmux: Remove unneeded constant variable
+	  Since the removal of the gif hacks, the variable was always set to
+	  its default value of FALSE. Just remove it.
+	  CID #1433656
+
+2018-02-22 15:57:24 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avvidec: Expose Closed Caption as GstVideoCaptionMeta
+
+2018-05-05 18:00:06 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavdemux.c:
+	  Expose support for DSD
+	  DSD is usually wrapped in DSF, for which we now also expose the
+	  demuxer.
+	  https://bugzilla.gnome.org/show_bug.cgi?id=721186
+
+2014-07-12 15:26:36 +0200  Matej Knopp <matej.knopp@gmail.com>
+
+	* ext/libav/gstavdemux.c:
+	  gstavdemux: adjust seeking offset according to start_time
+	  https://bugzilla.gnome.org/show_bug.cgi?id=733094
+
+2018-05-05 20:03:49 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* meson.build:
+	* meson_options.txt:
+	  meson: Update option names to omit disable_ and with- prefixes
+	  Also yield common options to the outer project (gst-build in our case)
+	  so that they don't have to be set manually.
+
+2018-05-01 14:57:43 +1000  Jan Schmidt <jan@centricular.com>
+
+	* gst-libs/ext/gas-preprocessor:
+	  Update gas-preprocessor submodule
+
+2018-05-01 05:19:28 +1000  Jan Schmidt <jan@centricular.com>
+
+	* configure.ac:
+	  configure: Always use full path for gas-preprocessor PATH entry
+	  Don't pass a relative path to gas-preprocessor, always use an
+	  absolute path to make sure it's found
+
+2018-04-28 00:14:45 +1000  Jan Schmidt <jan@centricular.com>
+
+	* configure.ac:
+	  configure: fix handling of the input AS var passed to ffmpeg
+	  Store the original AS environment variable passed to configure
+	  correctly, and export it so it's actually available to the sub-process
+	  when configuring the embedded ffmpeg
+
+2018-04-16 10:53:36 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* common:
+	  Automatic update of common submodule
+	  From 3fa2c9e to ed78bee
+
+2018-03-20 09:41:11 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* configure.ac:
+	* docs/plugins/inspect/plugin-libav.xml:
+	* meson.build:
+	  Back to development
+
 === release 1.14.0 ===
 
 2018-03-19 20:25:38 +0000  Tim-Philipp Müller <tim@centricular.com>
@@ -11093,11 +12644,11 @@
 	  Original commit message from CVS:
 	  ChangeLog surgery: UTF8-ize latest entry
 
-2007-11-08 14:44:36 +0000  Ole Andr� Vadla Ravn�s <ole.andre.ravnas@tandberg.com>
+2007-11-08 14:44:36 +0000  Ole Andr� Vadla Ravn�s <ole.andre.ravnas@tandberg.com>
 
 	  ext/ffmpeg/:
 	  Original commit message from CVS:
-	  Patch by: Ole Andr� Vadla Ravn�s <ole dot andre dot ravnas at tandberg dot com>
+	  Patch by: Ole Andr� Vadla Ravn�s <ole dot andre dot ravnas at tandberg dot com>
 	  * ext/ffmpeg/gstffmpegcodecmap.c: (gst_ffmpeg_caps_with_codecid):
 	  * ext/ffmpeg/gstffmpegmux.c: (gst_ffmpegmux_init):
 

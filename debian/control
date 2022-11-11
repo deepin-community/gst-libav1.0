@@ -1,33 +1,34 @@
 Source: gst-libav1.0
 Section: libs
 Priority: optional
-Maintainer: Deepin Developer <deepin-dev@deepin.org>
-Uploaders: Deepin Packages Builder <packages@deepin.org>
-Build-Depends: debhelper (>= 9),
-               cdbs (>= 0.4.93),
-               dpkg-dev (>= 1.16.1~),
-               autotools-dev,
-               dh-autoreconf,
-               autoconf (>= 2.69),
-               automake (>= 1.14),
-               libtool (>= 2.2.6),
-               autopoint (>= 0.17),
-               gtk-doc-tools (>= 1.12),
+Maintainer: Maintainers of GStreamer packages <gst-libav1.0@packages.debian.org>
+Uploaders: Sebastian Dröge <slomo@debian.org>,
+           Sjoerd Simons <sjoerd@debian.org>
+Build-Depends: debhelper,
+               debhelper-compat (= 13),
+               dpkg-dev (>= 1.15.1),
+               meson (>= 0.48),
+               pkg-config (>= 0.11.0),
+               xvfb,
+               xauth,
+               libglib2.0-dev (>= 2.44),
+               libgstreamer1.0-dev (>= 1.18.0),
+               libgstreamer-plugins-base1.0-dev (>= 1.18.0),
+               gstreamer1.0-plugins-base (>= 1.18.0),
+               gstreamer1.0-plugins-good (>= 1.18.0),
+               liborc-0.4-dev (>= 1:0.4.17),
                zlib1g-dev,
                liblzma-dev,
-               libglib2.0-dev (>= 2.40),
-               pkg-config (>= 0.11.0),
-               libgstreamer1.0-dev (>= 1.14.2),
-               libgstreamer-plugins-base1.0-dev (>= 1.14.2),
-               liborc-0.4-dev (>= 1:0.4.16),
+               libbz2-dev,
                libavutil-dev (>= 7:4.0),
                libavcodec-dev (>= 7:4.0),
                libavfilter-dev (>= 7:4.0),
                libavformat-dev (>= 7:4.0),
                libswscale-dev (>= 7:4.0),
-               libbz2-dev,
                yasm
-Standards-Version: 3.9.3
+Standards-Version: 4.5.0
+Vcs-Git: https://salsa.debian.org/gstreamer-team/gst-libav1.0.git
+Vcs-Browser: https://salsa.debian.org/gstreamer-team/gst-libav1.0/
 Homepage: https://gstreamer.freedesktop.org
 
 Package: gstreamer1.0-libav
@@ -43,45 +44,13 @@ XB-GStreamer-URI-Sinks: ${gstreamer:URISinks}
 XB-GStreamer-Encoders: ${gstreamer:Encoders}
 XB-GStreamer-Decoders: ${gstreamer:Decoders}
 Provides: ${gstreamer:Provides}
-Description: libav plugin for GStreamer
+Description: ffmpeg plugin for GStreamer
  This GStreamer plugin supports a large number of audio and video compression
- formats through the use of the libav library.  The plugin contains GStreamer
+ formats through the use of the ffmpeg library.  The plugin contains GStreamer
  elements for encoding 40+ formats (MPEG, DivX, MPEG4, AC3, DV, ...), decoding
  elements for decoding 90+ formats (AVI, MPEG, OGG, Matroska, ASF, ...),
  demuxing 30+ formats and colorspace conversion.
  .
- http://www.libav.org/
+ http://www.ffmpeg.org/
  http://gstreamer.freedesktop.org/
  http://gstreamer.freedesktop.org/modules/gst-libav.html
-
-Package: gstreamer1.0-libav-dbg
-Architecture: any
-Multi-Arch: same
-Section: debug
-Priority: extra
-Depends: ${misc:Depends},
-         ${shlibs:Depends},
-         gstreamer1.0-libav (= ${binary:Version})
-XB-GStreamer-Version: ${gstreamer:Version}
-XB-GStreamer-Elements: ${gstreamer:Elements}
-XB-GStreamer-URI-Sources: ${gstreamer:URISources}
-XB-GStreamer-URI-Sinks: ${gstreamer:URISinks}
-XB-GStreamer-Encoders: ${gstreamer:Encoders}
-XB-GStreamer-Decoders: ${gstreamer:Decoders}
-Provides: ${gstreamer:Provides}
-Description: libav plugin for GStreamer (debug symbols)
- This GStreamer plugin supports a large number of audio and video compression
- formats through the use of the libav library.  The plugin contains GStreamer
- elements for encoding 40+ formats (MPEG, DivX, MPEG4, AC3, DV, ...), decoding
- elements for decoding 90+ formats (AVI, MPEG, OGG, Matroska, ASF, ...),
- demuxing 30+ formats and colorspace conversion.
- .
- http://www.libav.org/
- http://gstreamer.freedesktop.org/
- http://gstreamer.freedesktop.org/modules/gst-libav.html
- .
- This package contains unstripped shared libraries. It is provided primarily
- to provide a backtrace with names in a debugger, this makes it somewhat
- easier to interpret core dumps. The libraries are installed in
- /usr/lib/debug and are automatically used by gdb.
-

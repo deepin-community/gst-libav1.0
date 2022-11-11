@@ -1,20 +1,18 @@
 #!/usr/bin/make -f
 
-include /usr/share/cdbs/1/rules/debhelper.mk
-include /usr/share/cdbs/1/class/gnome.mk
-include /usr/share/cdbs/1/rules/utils.mk
-include /usr/share/cdbs/1/rules/autoreconf.mk
+include /usr/share/dpkg/default.mk
 
-# Work-around for gtk-doc bug:
-# https://bugzilla.gnome.org/show_bug.cgi?id=783926
-export PYTHONIOENCODING="utf-8"
+export HOME=$(CURDIR)/fake-home
 
-DEB_DH_AUTORECONF_ARGS += --as-needed
+# debian package version
+version=$(shell dpkg-parsechangelog | grep ^Version: | cut -d ' ' -f 2)
+# upstream version
+gst_version=$(shell echo $(version) | cut -d '-' -f 1)
 
-export DEB_BUILD_MAINT_OPTIONS=hardening=-all
-include /usr/share/dpkg/buildflags.mk
+FFMPEG_LIBDIR = /usr/lib/$(DEB_HOST_MULTIARCH)
 
-CFLAGS += -Wno-error
+CFLAGS += -Wno-error -DFFMPEG_LIBDIR=\"$(FFMPEG_LIBDIR)\"
+CXXFLAGS += -Wno-error
 LDFLAGS += -Wl,-z,defs -Wl,-O1 -Wl,--as-needed
 
 # Let's decide the package name and url depending on the distribution
@@ -33,19 +31,29 @@ GST_PACKAGE_NAME := "GStreamer libav Plugins (Ubuntu)"
 GST_PACKAGE_ORIGIN="https://launchpad.net/distros/ubuntu/+source/gst-libav1.0"
 endif
 
-DEB_CONFIGURE_EXTRA_FLAGS += --with-system-libav \
-                             --libdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH) \
-                             --with-package-name=$(GST_PACKAGE_NAME) \
-                             --with-package-origin=$(GST_PACKAGE_ORIGIN)
+conf_flags = --libdir=lib/$(DEB_HOST_MULTIARCH) --libexecdir=lib/$(DEB_HOST_MULTIARCH)/gstreamer1.0
+conf_flags += -Dpackage-name=$(GST_PACKAGE_NAME) -Dpackage-origin=$(GST_PACKAGE_ORIGIN)
 
-DEB_INSTALL_DOCS_ALL += debian/README.Debian NEWS
+%:
+	dh $@ --buildsystem=meson
 
-DEB_DH_STRIP_ARGS := --dbg-package=gstreamer1.0-libav-dbg
+override_dh_auto_configure:
+	dh_auto_configure -- --default-library shared $(conf_flags)
 
-install/gst-libav1.0::
-	rm -f debian/gstreamer1.0-libav/usr/lib/*/gstreamer-1.0/libgst*.la
-	rm -f debian/gstreamer1.0-libav/usr/lib/*/gstreamer-1.0/libgst*.a
+override_dh_auto_clean:
+	rm -rf $(CURDIR)/fake-home
+	dh_auto_clean
 
-common-binary-fixup-arch::
+override_dh_auto_test:
+	xvfb-run dh_auto_test || true
+
+override_dh_strip:
+	dh_strip --dbgsym-migration='gstreamer1.0-libav-dbg (<< 1.17.1-1~)'
+
+override_dh_install:
+	dh_install
+
+	mkdir -p $(CURDIR)/fake-home
+	HOME=$(CURDIR)/fake-home \
 	dh_gstscancodecs
-
+	rm -rf $(CURDIR)/fake-home

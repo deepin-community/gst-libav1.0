@@ -153,6 +153,8 @@ register_enum (const AVClass ** obj, const AVOption * top_opt)
     res =
         g_enum_register_static (enum_name, &g_array_index (values, GEnumValue,
             0));
+
+    gst_type_mark_as_plugin_api (res, 0);
   }
 
 done:
@@ -211,6 +213,8 @@ register_flags (const AVClass ** obj, const AVOption * top_opt)
     res =
         g_flags_register_static (flags_name, &g_array_index (values,
             GFlagsValue, 0));
+
+    gst_type_mark_as_plugin_api (res, 0);
   }
 
 done:
@@ -252,10 +256,12 @@ install_opts (GObjectClass * gobject_class, const AVClass ** obj, guint prop_id,
     if (g_object_class_find_property (gobject_class, name))
       continue;
 
-    if (av_opt_query_ranges (&r, obj, opt->name, AV_OPT_SEARCH_FAKE_OBJ) >= 0
-        && r->nb_ranges == 1) {
-      min = r->range[0]->value_min;
-      max = r->range[0]->value_max;
+    if (av_opt_query_ranges (&r, obj, opt->name, AV_OPT_SEARCH_FAKE_OBJ) >= 0) {
+      if (r->nb_ranges == 1) {
+        min = r->range[0]->value_min;
+        max = r->range[0]->value_max;
+      }
+      av_opt_freep_ranges (&r);
     }
 
     help = g_strdup_printf ("%s%s", opt->help, extra_help);
@@ -296,11 +302,22 @@ install_opts (GObjectClass * gobject_class, const AVClass ** obj, guint prop_id,
         break;
       case AV_OPT_TYPE_DURATION:       /* Fall through */
       case AV_OPT_TYPE_INT64:
-        /* ffmpeg expresses all ranges with doubles, this is sad */
-        pspec = g_param_spec_int64 (name, name, help,
-            (gint64) (min == (gdouble) INT64_MIN ? INT64_MIN : min),
-            (gint64) (max == (gdouble) INT64_MAX ? INT64_MAX : max),
-            opt->default_val.i64, G_PARAM_READWRITE);
+        /* FIXME 2.0: Workaround for worst property related API change. We
+         * continue using a 32 bit integer for the bitrate property as
+         * otherwise too much existing code will fail at runtime.
+         *
+         * See https://gitlab.freedesktop.org/gstreamer/gst-libav/issues/41#note_142808 */
+        if (g_strcmp0 (name, "bitrate") == 0) {
+          pspec = g_param_spec_int (name, name, help,
+              (gint) MAX (min, G_MININT), (gint) MIN (max, G_MAXINT),
+              (gint) opt->default_val.i64, G_PARAM_READWRITE);
+        } else {
+          /* ffmpeg expresses all ranges with doubles, this is sad */
+          pspec = g_param_spec_int64 (name, name, help,
+              (min == (gdouble) INT64_MIN ? INT64_MIN : (gint64) min),
+              (max == (gdouble) INT64_MAX ? INT64_MAX : (gint64) max),
+              opt->default_val.i64, G_PARAM_READWRITE);
+        }
         g_object_class_install_property (gobject_class, prop_id++, pspec);
         break;
       case AV_OPT_TYPE_DOUBLE:
@@ -322,8 +339,13 @@ install_opts (GObjectClass * gobject_class, const AVClass ** obj, guint prop_id,
       case AV_OPT_TYPE_UINT64:
         /* ffmpeg expresses all ranges with doubles, this is appalling */
         pspec = g_param_spec_uint64 (name, name, help,
-            (gint64) (min == (gdouble) 0 ? 0 : min),
-            (gint64) (max == (gdouble) UINT64_MAX ? UINT64_MAX : min),
+            (guint64) (min <= (gdouble) 0 ? 0 : (guint64) min),
+            (guint64) (max >=
+                /* Biggest value before UINT64_MAX that can be represented as double */
+                (gdouble) 18446744073709550000.0 ?
+                /* The Double conversion rounds UINT64_MAX to a bigger */
+                /* value, so the following smaller limit must be used. */
+                G_GUINT64_CONSTANT (18446744073709550000) : (guint64) max),
             opt->default_val.i64, G_PARAM_READWRITE);
         g_object_class_install_property (gobject_class, prop_id++, pspec);
         break;
@@ -461,96 +483,91 @@ gst_ffmpeg_cfg_get_property (AVCodecContext * refcontext, GValue * value,
     GParamSpec * pspec)
 {
   const AVOption *opt;
+  int res = -1;
 
   opt = g_param_spec_get_qdata (pspec, avoption_quark);
 
-  if (!opt) {
+  if (!opt)
     return FALSE;
-  }
 
-  if (opt) {
-    int res = -1;
-
-    switch (G_PARAM_SPEC_VALUE_TYPE (pspec)) {
-      case G_TYPE_INT:
-      {
-        int64_t val;
-        if ((res = av_opt_get_int (refcontext, opt->name,
-                    AV_OPT_SEARCH_CHILDREN, &val) >= 0))
-          g_value_set_int (value, val);
-        break;
-      }
-      case G_TYPE_INT64:
-      {
-        int64_t val;
-        if ((res = av_opt_get_int (refcontext, opt->name,
-                    AV_OPT_SEARCH_CHILDREN, &val) >= 0))
-          g_value_set_int64 (value, val);
-        break;
-      }
-      case G_TYPE_UINT64:
-      {
-        int64_t val;
-        if ((res = av_opt_get_int (refcontext, opt->name,
-                    AV_OPT_SEARCH_CHILDREN, &val) >= 0))
-          g_value_set_uint64 (value, val);
-        break;
-      }
-      case G_TYPE_DOUBLE:
-      {
-        gdouble val;
-        if ((res = av_opt_get_double (refcontext, opt->name,
-                    AV_OPT_SEARCH_CHILDREN, &val) >= 0))
-          g_value_set_double (value, val);
-        break;
-      }
-      case G_TYPE_FLOAT:
-      {
-        gdouble val;
-        if ((res = av_opt_get_double (refcontext, opt->name,
-                    AV_OPT_SEARCH_CHILDREN, &val) >= 0))
-          g_value_set_float (value, (gfloat) val);
-        break;
-      }
-      case G_TYPE_STRING:
-      {
-        uint8_t *val;
-        if ((res = av_opt_get (refcontext, opt->name,
-                    AV_OPT_SEARCH_CHILDREN | AV_OPT_ALLOW_NULL, &val) >= 0)) {
-          g_value_set_string (value, (gchar *) val);
-        }
-        break;
-      }
-      case G_TYPE_BOOLEAN:
-      {
-        int64_t val;
-        if ((res = av_opt_get_int (refcontext, opt->name,
-                    AV_OPT_SEARCH_CHILDREN, &val) >= 0))
-          g_value_set_boolean (value, val ? TRUE : FALSE);
-        break;
-      }
-      default:
-        if (G_IS_PARAM_SPEC_ENUM (pspec)) {
-          int64_t val;
-
-          if ((res = av_opt_get_int (refcontext, opt->name,
-                      AV_OPT_SEARCH_CHILDREN, &val) >= 0))
-            g_value_set_enum (value, val);
-        } else if (G_IS_PARAM_SPEC_FLAGS (pspec)) {
-          int64_t val;
-
-          if ((res = av_opt_get_int (refcontext, opt->name,
-                      AV_OPT_SEARCH_CHILDREN, &val) >= 0))
-            g_value_set_flags (value, val);
-        } else {                /* oops, bit lazy we don't cover this case yet */
-          g_critical ("%s does not yet support type %s", GST_FUNCTION,
-              g_type_name (G_PARAM_SPEC_VALUE_TYPE (pspec)));
-        }
+  switch (G_PARAM_SPEC_VALUE_TYPE (pspec)) {
+    case G_TYPE_INT:
+    {
+      int64_t val;
+      if ((res = av_opt_get_int (refcontext, opt->name,
+                  AV_OPT_SEARCH_CHILDREN, &val) >= 0))
+        g_value_set_int (value, val);
+      break;
     }
-    return res >= 0;
+    case G_TYPE_INT64:
+    {
+      int64_t val;
+      if ((res = av_opt_get_int (refcontext, opt->name,
+                  AV_OPT_SEARCH_CHILDREN, &val) >= 0))
+        g_value_set_int64 (value, val);
+      break;
+    }
+    case G_TYPE_UINT64:
+    {
+      int64_t val;
+      if ((res = av_opt_get_int (refcontext, opt->name,
+                  AV_OPT_SEARCH_CHILDREN, &val) >= 0))
+        g_value_set_uint64 (value, val);
+      break;
+    }
+    case G_TYPE_DOUBLE:
+    {
+      gdouble val;
+      if ((res = av_opt_get_double (refcontext, opt->name,
+                  AV_OPT_SEARCH_CHILDREN, &val) >= 0))
+        g_value_set_double (value, val);
+      break;
+    }
+    case G_TYPE_FLOAT:
+    {
+      gdouble val;
+      if ((res = av_opt_get_double (refcontext, opt->name,
+                  AV_OPT_SEARCH_CHILDREN, &val) >= 0))
+        g_value_set_float (value, (gfloat) val);
+      break;
+    }
+    case G_TYPE_STRING:
+    {
+      uint8_t *val;
+      if ((res = av_opt_get (refcontext, opt->name,
+                  AV_OPT_SEARCH_CHILDREN | AV_OPT_ALLOW_NULL, &val) >= 0)) {
+        g_value_set_string (value, (gchar *) val);
+      }
+      break;
+    }
+    case G_TYPE_BOOLEAN:
+    {
+      int64_t val;
+      if ((res = av_opt_get_int (refcontext, opt->name,
+                  AV_OPT_SEARCH_CHILDREN, &val) >= 0))
+        g_value_set_boolean (value, val ? TRUE : FALSE);
+      break;
+    }
+    default:
+      if (G_IS_PARAM_SPEC_ENUM (pspec)) {
+        int64_t val;
+
+        if ((res = av_opt_get_int (refcontext, opt->name,
+                    AV_OPT_SEARCH_CHILDREN, &val) >= 0))
+          g_value_set_enum (value, val);
+      } else if (G_IS_PARAM_SPEC_FLAGS (pspec)) {
+        int64_t val;
+
+        if ((res = av_opt_get_int (refcontext, opt->name,
+                    AV_OPT_SEARCH_CHILDREN, &val) >= 0))
+          g_value_set_flags (value, val);
+      } else {                  /* oops, bit lazy we don't cover this case yet */
+        g_critical ("%s does not yet support type %s", GST_FUNCTION,
+            g_type_name (G_PARAM_SPEC_VALUE_TYPE (pspec)));
+      }
   }
 
-  return TRUE;
+  return res >= 0;
 }
 
 void

@@ -66,28 +66,6 @@ static const struct
   AV_CH_STEREO_RIGHT, GST_AUDIO_CHANNEL_POSITION_FRONT_RIGHT}
 };
 
-GType
-gst_ffmpeg_compliance_get_type (void)
-{
-  static GType ffmpeg_compliance_type = 0;
-  static const GEnumValue compliance_types[] = {
-    {GST_FFMPEG_VERY_STRICT, "Strictly conform to older spec",
-        "verystrict"},
-    {GST_FFMPEG_STRICT, "Strictly conform to current spec", "strict"},
-    {GST_FFMPEG_NORMAL, "Normal behavior", "normal"},
-    {GST_FFMPEG_UNOFFICIAL, "Allow unofficial extensions", "unofficial"},
-    {GST_FFMPEG_EXPERIMENTAL, "Allow nonstandardized experimental things",
-        "experimental"},
-    {0, NULL, NULL}
-  };
-
-  if (!ffmpeg_compliance_type) {
-    ffmpeg_compliance_type =
-        g_enum_register_static ("GstFFMpegCompliance", compliance_types);
-  }
-  return ffmpeg_compliance_type;
-}
-
 static guint64
 gst_ffmpeg_channel_positions_to_layout (GstAudioChannelPosition * pos,
     gint channels)
@@ -124,7 +102,7 @@ gst_ffmpeg_channel_layout_to_gst (guint64 channel_layout, gint channels,
   guint nchannels = 0;
   gboolean none_layout = FALSE;
 
-  if (channel_layout == 0) {
+  if (channel_layout == 0 || channels > 64) {
     nchannels = channels;
     none_layout = TRUE;
   } else {
@@ -185,7 +163,7 @@ gst_ffmpeg_channel_layout_to_gst (guint64 channel_layout, gint channels,
     } else {
       guint i;
 
-      for (i = 0; i < nchannels; i++)
+      for (i = 0; i < nchannels && i < 64; i++)
         pos[i] = GST_AUDIO_CHANNEL_POSITION_NONE;
     }
   }
@@ -284,8 +262,8 @@ gst_ff_vid_caps_new (AVCodecContext * context, AVCodec * codec,
         "width", G_TYPE_INT, context->width,
         "height", G_TYPE_INT, context->height, NULL);
 
-    num = context->time_base.den / context->ticks_per_frame;
-    denom = context->time_base.num;
+    num = context->framerate.num;
+    denom = context->framerate.den;
 
     if (!denom) {
       GST_LOG ("invalid framerate: %d/0, -> %d/1", num, num);
@@ -474,11 +452,14 @@ get_nbits_set (guint64 n)
 
 static void
 gst_ffmpeg_audio_set_sample_fmts (GstCaps * caps,
-    const enum AVSampleFormat *fmts)
+    const enum AVSampleFormat *fmts, gboolean always_interleaved)
 {
   GValue va = { 0, };
+  GValue vap = { 0, };
   GValue v = { 0, };
   GstAudioFormat format;
+  GstAudioLayout layout;
+  GstCaps *caps_copy = NULL;
 
   if (!fmts || fmts[0] == -1) {
     gint i;
@@ -486,38 +467,73 @@ gst_ffmpeg_audio_set_sample_fmts (GstCaps * caps,
     g_value_init (&va, GST_TYPE_LIST);
     g_value_init (&v, G_TYPE_STRING);
     for (i = 0; i <= AV_SAMPLE_FMT_DBL; i++) {
-      format = gst_ffmpeg_smpfmt_to_audioformat (i);
+      format = gst_ffmpeg_smpfmt_to_audioformat (i, NULL);
       if (format == GST_AUDIO_FORMAT_UNKNOWN)
         continue;
       g_value_set_string (&v, gst_audio_format_to_string (format));
       gst_value_list_append_value (&va, &v);
     }
     gst_caps_set_value (caps, "format", &va);
+    if (!always_interleaved) {
+      g_value_init (&vap, GST_TYPE_LIST);
+      g_value_set_string (&v, "interleaved");
+      gst_value_list_append_value (&vap, &v);
+      g_value_set_string (&v, "non-interleaved");
+      gst_value_list_append_value (&vap, &v);
+      gst_caps_set_value (caps, "layout", &vap);
+      g_value_unset (&vap);
+    } else {
+      gst_caps_set_simple (caps, "layout", G_TYPE_STRING, "interleaved", NULL);
+    }
     g_value_unset (&v);
     g_value_unset (&va);
     return;
   }
 
   g_value_init (&va, GST_TYPE_LIST);
+  g_value_init (&vap, GST_TYPE_LIST);
   g_value_init (&v, G_TYPE_STRING);
   while (*fmts != -1) {
-    format = gst_ffmpeg_smpfmt_to_audioformat (*fmts);
+    format = gst_ffmpeg_smpfmt_to_audioformat (*fmts, &layout);
     if (format != GST_AUDIO_FORMAT_UNKNOWN) {
       g_value_set_string (&v, gst_audio_format_to_string (format));
       /* Only append values we don't have yet */
-      if (!_gst_value_list_contains (&va, &v))
-        gst_value_list_append_value (&va, &v);
+      if (layout == GST_AUDIO_LAYOUT_INTERLEAVED || always_interleaved) {
+        if (!_gst_value_list_contains (&va, &v))
+          gst_value_list_append_value (&va, &v);
+      } else {
+        if (!_gst_value_list_contains (&vap, &v))
+          gst_value_list_append_value (&vap, &v);
+      }
     }
     fmts++;
   }
+  if (gst_value_list_get_size (&va) >= 1 && gst_value_list_get_size (&vap) >= 1) {
+    caps_copy = gst_caps_copy (caps);
+  }
   if (gst_value_list_get_size (&va) == 1) {
-    /* The single value is still in v */
-    gst_caps_set_value (caps, "format", &v);
+    gst_caps_set_value (caps, "format", gst_value_list_get_value (&va, 0));
+    gst_caps_set_simple (caps, "layout", G_TYPE_STRING, "interleaved", NULL);
   } else if (gst_value_list_get_size (&va) > 1) {
     gst_caps_set_value (caps, "format", &va);
+    gst_caps_set_simple (caps, "layout", G_TYPE_STRING, "interleaved", NULL);
+  }
+  if (gst_value_list_get_size (&vap) == 1) {
+    gst_caps_set_value (caps_copy ? caps_copy : caps, "format",
+        gst_value_list_get_value (&vap, 0));
+    gst_caps_set_simple (caps_copy ? caps_copy : caps, "layout", G_TYPE_STRING,
+        "non-interleaved", NULL);
+  } else if (gst_value_list_get_size (&vap) > 1) {
+    gst_caps_set_value (caps_copy ? caps_copy : caps, "format", &vap);
+    gst_caps_set_simple (caps_copy ? caps_copy : caps, "layout", G_TYPE_STRING,
+        "non-interleaved", NULL);
+  }
+  if (caps_copy) {
+    gst_caps_append (caps, caps_copy);
   }
   g_value_unset (&v);
   g_value_unset (&va);
+  g_value_unset (&vap);
 }
 
 /* same for audio - now with channels/sample rate
@@ -976,6 +992,12 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
           NULL);
       break;
 
+    case AV_CODEC_ID_METASOUND:
+      caps =
+          gst_ff_aud_caps_new (context, NULL, codec_id, encode,
+          "audio/x-voxware", NULL);
+      break;
+
     case AV_CODEC_ID_IMC:
       caps =
           gst_ff_aud_caps_new (context, NULL, codec_id, encode, "audio/x-imc",
@@ -1198,10 +1220,9 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
     }
     case AV_CODEC_ID_WMALOSSLESS:
     {
-      /* libav only supports a depth of 16 at the moment */
       caps =
           gst_ff_aud_caps_new (context, NULL, codec_id, encode, "audio/x-wma",
-          "wmaversion", G_TYPE_INT, 4, "depth", G_TYPE_INT, 16, NULL);
+          "wmaversion", G_TYPE_INT, 4, NULL);
       break;
     }
     case AV_CODEC_ID_WMAVOICE:
@@ -1255,6 +1276,17 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
         g_value_unset (&item);
         gst_caps_set_value (caps, "stream-format", &arr);
         g_value_unset (&arr);
+      } else if (context) {
+        /* FIXME: ffmpeg currently assumes AVC if there is extradata and
+         * byte-stream otherwise. See for example the MOV or MPEG-TS code.
+         * ffmpeg does not distinguish the different types of AVC. */
+        if (context->extradata_size > 0) {
+          gst_caps_set_simple (caps, "stream-format", G_TYPE_STRING, "avc",
+              NULL);
+        } else {
+          gst_caps_set_simple (caps, "stream-format", G_TYPE_STRING,
+              "byte-stream", NULL);
+        }
       }
       break;
 
@@ -1276,6 +1308,17 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
         g_value_unset (&item);
         gst_caps_set_value (caps, "stream-format", &arr);
         g_value_unset (&arr);
+      } else if (context) {
+        /* FIXME: ffmpeg currently assumes HVC1 if there is extradata and
+         * byte-stream otherwise. See for example the MOV or MPEG-TS code.
+         * ffmpeg does not distinguish the different types: HVC1/HEV1/etc. */
+        if (context->extradata_size > 0) {
+          gst_caps_set_simple (caps, "stream-format", G_TYPE_STRING, "hvc1",
+              NULL);
+        } else {
+          gst_caps_set_simple (caps, "stream-format", G_TYPE_STRING,
+              "byte-stream", NULL);
+        }
       }
       break;
 
@@ -1369,6 +1412,21 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
           "video/x-cineform", NULL);
       break;
 
+    case AV_CODEC_ID_SPEEDHQ:
+      if (context && context->codec_tag) {
+        gchar *variant = g_strdup_printf ("%" GST_FOURCC_FORMAT,
+            GST_FOURCC_ARGS (context->codec_tag));
+        caps =
+            gst_ff_vid_caps_new (context, NULL, codec_id, encode,
+            "video/x-speedhq", "variant", G_TYPE_STRING, variant, NULL);
+        g_free (variant);
+      } else {
+        caps =
+            gst_ff_vid_caps_new (context, NULL, codec_id, encode,
+            "video/x-speedhq", NULL);
+      }
+      break;
+
     case AV_CODEC_ID_AAC:
     {
       caps =
@@ -1404,12 +1462,19 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
         g_value_unset (&arr);
       } else {
         gst_caps_set_simple (caps, "mpegversion", G_TYPE_INT, 4,
-            "stream-format", G_TYPE_STRING, "raw",
             "base-profile", G_TYPE_STRING, "lc", NULL);
 
-        if (context && context->extradata_size > 0)
+        /* FIXME: ffmpeg currently assumes raw if there is extradata and
+         * ADTS otherwise. See for example the FDK AAC encoder. */
+        if (context && context->extradata_size > 0) {
+          gst_caps_set_simple (caps, "stream-format", G_TYPE_STRING, "raw",
+              NULL);
           gst_codec_utils_aac_caps_set_level_and_profile (caps,
               context->extradata, context->extradata_size);
+        } else if (context) {
+          gst_caps_set_simple (caps, "stream-format", G_TYPE_STRING, "adts",
+              NULL);
+        }
       }
 
       break;
@@ -2245,6 +2310,21 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
       gst_caps_set_simple (caps, "lsbf", G_TYPE_BOOLEAN,
           FALSE, "planar", G_TYPE_BOOLEAN, TRUE, NULL);
       break;
+    case AV_CODEC_ID_APTX:
+      caps =
+          gst_ff_aud_caps_new (context, NULL, codec_id, encode, "audio/aptx",
+          NULL);
+      break;
+    case AV_CODEC_ID_APTX_HD:
+      caps =
+          gst_ff_aud_caps_new (context, NULL, codec_id, encode, "audio/aptx-hd",
+          NULL);
+      break;
+    case AV_CODEC_ID_AV1:
+      caps =
+          gst_ff_vid_caps_new (context, NULL, codec_id, encode, "video/x-av1",
+          NULL);
+      break;
     default:
       GST_DEBUG ("Unknown codec ID %d, please add mapping here", codec_id);
       break;
@@ -2333,29 +2413,47 @@ gst_ffmpeg_pixfmt_to_caps (enum AVPixelFormat pix_fmt, AVCodecContext * context,
 }
 
 GstAudioFormat
-gst_ffmpeg_smpfmt_to_audioformat (enum AVSampleFormat sample_fmt)
+gst_ffmpeg_smpfmt_to_audioformat (enum AVSampleFormat sample_fmt,
+    GstAudioLayout * layout)
 {
+  if (layout)
+    *layout = GST_AUDIO_LAYOUT_NON_INTERLEAVED;
+
   switch (sample_fmt) {
     case AV_SAMPLE_FMT_U8:
+      if (layout)
+        *layout = GST_AUDIO_LAYOUT_INTERLEAVED;
     case AV_SAMPLE_FMT_U8P:
       return GST_AUDIO_FORMAT_U8;
       break;
+
     case AV_SAMPLE_FMT_S16:
+      if (layout)
+        *layout = GST_AUDIO_LAYOUT_INTERLEAVED;
     case AV_SAMPLE_FMT_S16P:
       return GST_AUDIO_FORMAT_S16;
       break;
+
     case AV_SAMPLE_FMT_S32:
+      if (layout)
+        *layout = GST_AUDIO_LAYOUT_INTERLEAVED;
     case AV_SAMPLE_FMT_S32P:
       return GST_AUDIO_FORMAT_S32;
       break;
     case AV_SAMPLE_FMT_FLT:
+      if (layout)
+        *layout = GST_AUDIO_LAYOUT_INTERLEAVED;
     case AV_SAMPLE_FMT_FLTP:
       return GST_AUDIO_FORMAT_F32;
       break;
+
     case AV_SAMPLE_FMT_DBL:
+      if (layout)
+        *layout = GST_AUDIO_LAYOUT_INTERLEAVED;
     case AV_SAMPLE_FMT_DBLP:
       return GST_AUDIO_FORMAT_F64;
       break;
+
     default:
       /* .. */
       return GST_AUDIO_FORMAT_UNKNOWN;
@@ -2376,13 +2474,16 @@ gst_ffmpeg_smpfmt_to_caps (enum AVSampleFormat sample_fmt,
 {
   GstCaps *caps = NULL;
   GstAudioFormat format;
+  GstAudioLayout layout;
 
-  format = gst_ffmpeg_smpfmt_to_audioformat (sample_fmt);
+  format = gst_ffmpeg_smpfmt_to_audioformat (sample_fmt, &layout);
 
   if (format != GST_AUDIO_FORMAT_UNKNOWN) {
     caps = gst_ff_aud_caps_new (context, codec, codec_id, TRUE, "audio/x-raw",
         "format", G_TYPE_STRING, gst_audio_format_to_string (format),
-        "layout", G_TYPE_STRING, "interleaved", NULL);
+        "layout", G_TYPE_STRING,
+        (layout == GST_AUDIO_LAYOUT_INTERLEAVED) ?
+        "interleaved" : "non-interleaved", NULL);
     GST_LOG ("caps for sample_fmt=%d: %" GST_PTR_FORMAT, sample_fmt, caps);
   } else {
     GST_LOG ("No caps found for sample_fmt=%d", sample_fmt);
@@ -2426,10 +2527,10 @@ gst_ffmpeg_codectype_to_audio_caps (AVCodecContext * context,
         codec_id);
   } else {
     caps = gst_ff_aud_caps_new (context, codec, codec_id, encode, "audio/x-raw",
-        "layout", G_TYPE_STRING, "interleaved", NULL);
+        NULL);
     if (!caps_has_field (caps, "format"))
       gst_ffmpeg_audio_set_sample_fmts (caps,
-          codec ? codec->sample_fmts : NULL);
+          codec ? codec->sample_fmts : NULL, encode);
   }
 
   return caps;
@@ -2470,6 +2571,8 @@ gst_ffmpeg_caps_to_smpfmt (const GstCaps * caps,
   const gchar *fmt;
   GstAudioFormat format = GST_AUDIO_FORMAT_UNKNOWN;
   gint bitrate;
+  const gchar *layout;
+  gboolean interleaved;
 
   g_return_if_fail (gst_caps_get_size (caps) == 1);
 
@@ -2490,18 +2593,25 @@ gst_ffmpeg_caps_to_smpfmt (const GstCaps * caps,
     }
   }
 
+  layout = gst_structure_get_string (structure, "layout");
+  interleaved = ! !g_strcmp0 (layout, "non-interleaved");
+
   switch (format) {
     case GST_AUDIO_FORMAT_F32:
-      context->sample_fmt = AV_SAMPLE_FMT_FLT;
+      context->sample_fmt =
+          interleaved ? AV_SAMPLE_FMT_FLT : AV_SAMPLE_FMT_FLTP;
       break;
     case GST_AUDIO_FORMAT_F64:
-      context->sample_fmt = AV_SAMPLE_FMT_DBL;
+      context->sample_fmt =
+          interleaved ? AV_SAMPLE_FMT_DBL : AV_SAMPLE_FMT_DBLP;
       break;
     case GST_AUDIO_FORMAT_S32:
-      context->sample_fmt = AV_SAMPLE_FMT_S32;
+      context->sample_fmt =
+          interleaved ? AV_SAMPLE_FMT_S32 : AV_SAMPLE_FMT_S32P;
       break;
     case GST_AUDIO_FORMAT_S16:
-      context->sample_fmt = AV_SAMPLE_FMT_S16;
+      context->sample_fmt =
+          interleaved ? AV_SAMPLE_FMT_S16 : AV_SAMPLE_FMT_S16P;
       break;
     default:
       break;
@@ -2854,83 +2964,12 @@ gst_ffmpeg_videoinfo_to_context (GstVideoInfo * info, AVCodecContext * context)
       break;
   }
 
-  switch (info->colorimetry.primaries) {
-    case GST_VIDEO_COLOR_PRIMARIES_BT709:
-      context->color_primaries = AVCOL_PRI_BT709;
-      break;
-    case GST_VIDEO_COLOR_PRIMARIES_BT470M:
-      context->color_primaries = AVCOL_PRI_BT470M;
-      break;
-    case GST_VIDEO_COLOR_PRIMARIES_BT470BG:
-      context->color_primaries = AVCOL_PRI_BT470BG;
-      break;
-    case GST_VIDEO_COLOR_PRIMARIES_SMPTE170M:
-      context->color_primaries = AVCOL_PRI_SMPTE170M;
-      break;
-    case GST_VIDEO_COLOR_PRIMARIES_SMPTE240M:
-      context->color_primaries = AVCOL_PRI_SMPTE240M;
-      break;
-    case GST_VIDEO_COLOR_PRIMARIES_FILM:
-      context->color_primaries = AVCOL_PRI_FILM;
-      break;
-    case GST_VIDEO_COLOR_PRIMARIES_BT2020:
-      context->color_primaries = AVCOL_PRI_BT2020;
-      break;
-    default:
-      break;
-  }
-
-  switch (info->colorimetry.transfer) {
-    case GST_VIDEO_TRANSFER_BT709:
-      context->color_trc = AVCOL_TRC_BT709;
-      break;
-    case GST_VIDEO_TRANSFER_GAMMA22:
-      context->color_trc = AVCOL_TRC_GAMMA22;
-      break;
-    case GST_VIDEO_TRANSFER_GAMMA28:
-      context->color_trc = AVCOL_TRC_GAMMA28;
-      break;
-    case GST_VIDEO_TRANSFER_SMPTE240M:
-      context->color_trc = AVCOL_TRC_SMPTE240M;
-      break;
-    case GST_VIDEO_TRANSFER_GAMMA10:
-      context->color_trc = AVCOL_TRC_LINEAR;
-      break;
-    case GST_VIDEO_TRANSFER_LOG100:
-      context->color_trc = AVCOL_TRC_LOG;
-      break;
-    case GST_VIDEO_TRANSFER_LOG316:
-      context->color_trc = AVCOL_TRC_LOG_SQRT;
-      break;
-    case GST_VIDEO_TRANSFER_BT2020_12:
-      context->color_trc = AVCOL_TRC_BT2020_12;
-      break;
-    default:
-      break;
-  }
-
-  switch (info->colorimetry.matrix) {
-    case GST_VIDEO_COLOR_MATRIX_RGB:
-      context->colorspace = AVCOL_SPC_RGB;
-      break;
-    case GST_VIDEO_COLOR_MATRIX_BT709:
-      context->colorspace = AVCOL_SPC_BT709;
-      break;
-    case GST_VIDEO_COLOR_MATRIX_FCC:
-      context->colorspace = AVCOL_SPC_FCC;
-      break;
-    case GST_VIDEO_COLOR_MATRIX_BT601:
-      context->colorspace = AVCOL_SPC_BT470BG;
-      break;
-    case GST_VIDEO_COLOR_MATRIX_SMPTE240M:
-      context->colorspace = AVCOL_SPC_SMPTE240M;
-      break;
-    case GST_VIDEO_COLOR_MATRIX_BT2020:
-      context->colorspace = AVCOL_SPC_BT2020_NCL;
-      break;
-    default:
-      break;
-  }
+  context->color_primaries =
+      gst_video_color_primaries_to_iso (info->colorimetry.primaries);
+  context->color_trc =
+      gst_video_transfer_function_to_iso (info->colorimetry.transfer);
+  context->colorspace =
+      gst_video_color_matrix_to_iso (info->colorimetry.matrix);
 
   if (info->colorimetry.range == GST_VIDEO_COLOR_RANGE_0_255) {
     context->color_range = AVCOL_RANGE_JPEG;
@@ -3390,6 +3429,18 @@ gst_ffmpeg_caps_with_codecid (enum AVCodecID codec_id,
       }
       break;
     }
+    case AV_CODEC_ID_SPEEDHQ:
+    {
+      const gchar *variant;
+
+      if (context && (variant = gst_structure_get_string (str, "variant"))
+          && strlen (variant) == 4) {
+
+        context->codec_tag =
+            GST_MAKE_FOURCC (variant[0], variant[1], variant[2], variant[3]);
+      }
+      break;
+    }
     default:
       break;
   }
@@ -3702,6 +3753,31 @@ gst_ffmpeg_formatid_get_codecids (const gchar * format_name,
     };
     *video_codec_list = gif_image_list;
     *audio_codec_list = NULL;
+  } else if ((!strcmp (format_name, "pva"))) {
+    static enum AVCodecID pga_video_list[] = {
+      AV_CODEC_ID_MPEG2VIDEO,
+      AV_CODEC_ID_NONE
+    };
+    static enum AVCodecID pga_audio_list[] = {
+      AV_CODEC_ID_MP2,
+      AV_CODEC_ID_NONE
+    };
+
+    *video_codec_list = pga_video_list;
+    *audio_codec_list = pga_audio_list;
+  } else if ((!strcmp (format_name, "ivf"))) {
+    static enum AVCodecID ivf_video_list[] = {
+      AV_CODEC_ID_VP8,
+      AV_CODEC_ID_VP9,
+      AV_CODEC_ID_AV1,
+      AV_CODEC_ID_NONE
+    };
+    static enum AVCodecID ivf_audio_list[] = {
+      AV_CODEC_ID_NONE
+    };
+
+    *video_codec_list = ivf_video_list;
+    *audio_codec_list = ivf_audio_list;
   } else if ((plugin->audio_codec != AV_CODEC_ID_NONE) ||
       (plugin->video_codec != AV_CODEC_ID_NONE)) {
     tmp_vlist[0] = plugin->video_codec;
@@ -3709,18 +3785,6 @@ gst_ffmpeg_formatid_get_codecids (const gchar * format_name,
 
     *video_codec_list = tmp_vlist;
     *audio_codec_list = tmp_alist;
-  } else if ((!strcmp (format_name, "pva"))) {
-    static enum AVCodecID tgp_video_list[] = {
-      AV_CODEC_ID_MPEG2VIDEO,
-      AV_CODEC_ID_NONE
-    };
-    static enum AVCodecID tgp_audio_list[] = {
-      AV_CODEC_ID_MP2,
-      AV_CODEC_ID_NONE
-    };
-
-    *video_codec_list = tgp_video_list;
-    *audio_codec_list = tgp_audio_list;
   } else {
     GST_LOG ("Format %s not found", format_name);
     return FALSE;
@@ -4031,6 +4095,9 @@ gst_ffmpeg_caps_to_codecid (const GstCaps * caps, AVCodecContext * context)
     video = TRUE;
   } else if (!strcmp (mimetype, "video/x-cineform")) {
     id = AV_CODEC_ID_CFHD;
+    video = TRUE;
+  } else if (!strcmp (mimetype, "video/x-speedhq")) {
+    id = AV_CODEC_ID_SPEEDHQ;
     video = TRUE;
   } else if (!strcmp (mimetype, "video/x-indeo")) {
     gint indeoversion = 0;

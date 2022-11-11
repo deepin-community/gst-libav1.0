@@ -1,6 +1,6 @@
 project('gst-libav', 'c', 'cpp',
-  version : '1.15.0.1',
-  meson_version : '>= 0.46.0',
+  version : '1.18.5',
+  meson_version : '>= 0.48.0',
   default_options : [ 'warning_level=1',
                       'buildtype=debugoptimized' ])
 
@@ -15,6 +15,7 @@ else
   gst_version_nano = 0
 endif
 
+api_version = '1.0'
 libavfilter_dep = dependency('libavfilter', version: '>= 7.16.100',
   fallback: ['FFmpeg', 'libavfilter_dep'])
 libavformat_dep = dependency('libavformat', version: '>= 58.12.100',
@@ -38,11 +39,6 @@ check_ffmpeg_src = '''#include <libavcodec/avcodec.h>
 libav_deps_type_name = ''
 
 foreach dep: libav_deps
-  message('type name: @0@'.format(dep.type_name()))
-endforeach
-
-foreach dep: libav_deps
-  message('[@0@] / [@1@]'.format(libav_deps_type_name, dep.type_name()))
   if libav_deps_type_name != '' and dep.type_name() != libav_deps_type_name
     error('Libav deps must be either all internal or all external')
   endif
@@ -97,8 +93,6 @@ gstpbutils_dep = dependency('gstreamer-pbutils-1.0', version : gst_req,
     fallback : ['gst-plugins-base', 'pbutils_dep'])
 libm = cc.find_library('m', required : false)
 
-configure_file(output : 'config.h', configuration : cdata)
-
 gst_libav_args = ['-DHAVE_CONFIG_H']
 if cc.get_id() == 'msvc'
   # Ignore several spurious warnings for things gstreamer does very commonly
@@ -116,6 +110,11 @@ endif
 # Symbol visibility
 if cc.has_argument('-fvisibility=hidden')
   add_project_arguments('-fvisibility=hidden', language: 'c')
+endif
+
+# Don't export any symbols from static ffmpeg libraries
+if cc.has_link_argument('-Wl,--exclude-libs=ALL')
+  add_project_link_arguments('-Wl,--exclude-libs=ALL', language: 'c')
 endif
 
 # Disable strict aliasing
@@ -175,7 +174,33 @@ endforeach
 
 configinc = include_directories('.')
 plugins_install_dir = '@0@/gstreamer-1.0'.format(get_option('libdir'))
-subdir('ext/libav/')
 
-python3 = import('python3').find_python()
+pkgconfig = import('pkgconfig')
+plugins_pkgconfig_install_dir = join_paths(plugins_install_dir, 'pkgconfig')
+if get_option('default_library') == 'shared'
+  # If we don't build static plugins there is no need to generate pc files
+  plugins_pkgconfig_install_dir = disabler()
+endif
+
+plugins = []
+subdir('ext/libav')
+subdir('docs')
+
+# Set release date
+if gst_version_nano == 0
+  extract_release_date = find_program('scripts/extract-release-date-from-doap-file.py')
+  run_result = run_command(extract_release_date, gst_version, files('gst-libav.doap'))
+  if run_result.returncode() == 0
+    release_date = run_result.stdout().strip()
+    cdata.set_quoted('GST_PACKAGE_RELEASE_DATETIME', release_date)
+    message('Package release date: ' + release_date)
+  else
+    # Error out if our release can't be found in the .doap file
+    error(run_result.stderr())
+  endif
+endif
+
+configure_file(output: 'config.h', configuration: cdata)
+
+python3 = import('python').find_installation()
 run_command(python3, '-c', 'import shutil; shutil.copy("hooks/pre-commit.hook", ".git/hooks/pre-commit")')

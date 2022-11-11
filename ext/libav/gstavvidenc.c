@@ -196,6 +196,8 @@ gst_ffmpegvidenc_class_init (GstFFMpegVidEncClass * klass)
   venc_class->flush = gst_ffmpegvidenc_flush;
 
   gobject_class->finalize = gst_ffmpegvidenc_finalize;
+
+  gst_type_mark_as_plugin_api (GST_TYPE_FFMPEG_PASS, 0);
 }
 
 static void
@@ -221,6 +223,7 @@ gst_ffmpegvidenc_finalize (GObject * object)
   /* clean up remaining allocated data */
   av_frame_free (&ffmpegenc->picture);
   gst_ffmpeg_avcodec_close (ffmpegenc->context);
+  gst_ffmpeg_avcodec_close (ffmpegenc->refcontext);
   av_free (ffmpegenc->context);
   av_free (ffmpegenc->refcontext);
 
@@ -240,6 +243,8 @@ gst_ffmpegvidenc_set_format (GstVideoEncoder * encoder,
   GstFFMpegVidEncClass *oclass =
       (GstFFMpegVidEncClass *) G_OBJECT_GET_CLASS (ffmpegenc);
 
+  ffmpegenc->need_reopen = FALSE;
+
   /* close old session */
   if (ffmpegenc->opened) {
     gst_ffmpeg_avcodec_close (ffmpegenc->context);
@@ -253,6 +258,10 @@ gst_ffmpegvidenc_set_format (GstVideoEncoder * encoder,
 
   /* additional avcodec settings */
   gst_ffmpeg_cfg_fill_context (G_OBJECT (ffmpegenc), ffmpegenc->context);
+
+  if (GST_VIDEO_INFO_IS_INTERLACED (&state->info))
+    ffmpegenc->context->flags |=
+        AV_CODEC_FLAG_INTERLACED_DCT | AV_CODEC_FLAG_INTERLACED_ME;
 
   /* and last but not least the pass; CBR, 2-pass, etc */
   ffmpegenc->context->flags |= ffmpegenc->pass;
@@ -496,6 +505,9 @@ static enum AVStereo3DType
 stereo_gst_to_av (GstVideoMultiviewMode mview_mode)
 {
   switch (mview_mode) {
+    case GST_VIDEO_MULTIVIEW_MODE_MONO:
+      /* Video is not stereoscopic (and metadata has to be there). */
+      return AV_STEREO3D_2D;
     case GST_VIDEO_MULTIVIEW_MODE_SIDE_BY_SIDE:
       return AV_STEREO3D_SIDEBYSIDE;
     case GST_VIDEO_MULTIVIEW_MODE_TOP_BOTTOM:
@@ -517,6 +529,25 @@ stereo_gst_to_av (GstVideoMultiviewMode mview_mode)
   return AV_STEREO3D_2D;
 }
 
+static void
+gst_ffmpegvidenc_add_cc (GstBuffer * buffer, AVFrame * picture)
+{
+  GstVideoCaptionMeta *cc_meta;
+  gpointer iter = NULL;
+
+  while ((cc_meta =
+          (GstVideoCaptionMeta *) gst_buffer_iterate_meta_filtered (buffer,
+              &iter, GST_VIDEO_CAPTION_META_API_TYPE))) {
+    AVFrameSideData *sd;
+
+    if (cc_meta->caption_type != GST_VIDEO_CAPTION_TYPE_CEA708_RAW)
+      continue;
+
+    sd = av_frame_new_side_data (picture, AV_FRAME_DATA_A53_CC, cc_meta->size);
+    memcpy (sd->data, cc_meta->data, cc_meta->size);
+  }
+}
+
 static GstFlowReturn
 gst_ffmpegvidenc_send_frame (GstFFMpegVidEnc * ffmpegenc,
     GstVideoCodecFrame * frame)
@@ -533,12 +564,16 @@ gst_ffmpegvidenc_send_frame (GstFFMpegVidEnc * ffmpegenc,
 
   picture = ffmpegenc->picture;
 
-  if (ffmpegenc->context->flags & (AV_CODEC_FLAG_INTERLACED_DCT |
-          AV_CODEC_FLAG_INTERLACED_ME)) {
+  gst_ffmpegvidenc_add_cc (frame->input_buffer, picture);
+
+  if (GST_VIDEO_INFO_IS_INTERLACED (&ffmpegenc->input_state->info)) {
     picture->interlaced_frame = TRUE;
-    /* if this is not the case, a filter element should be used to swap fields */
     picture->top_field_first =
-        GST_BUFFER_FLAG_IS_SET (frame->input_buffer, GST_VIDEO_BUFFER_FLAG_TFF);
+        GST_BUFFER_FLAG_IS_SET (frame->input_buffer, GST_VIDEO_BUFFER_FLAG_TFF)
+        || GST_VIDEO_INFO_FIELD_ORDER (&ffmpegenc->input_state->info) ==
+        GST_VIDEO_FIELD_ORDER_TOP_FIELD_FIRST;
+    picture->repeat_pict =
+        GST_BUFFER_FLAG_IS_SET (frame->input_buffer, GST_VIDEO_BUFFER_FLAG_RFF);
   }
 
   if (GST_VIDEO_INFO_MULTIVIEW_MODE (info) != GST_VIDEO_MULTIVIEW_MODE_NONE) {
@@ -589,6 +624,20 @@ gst_ffmpegvidenc_send_frame (GstFFMpegVidEnc * ffmpegenc,
       ffmpegenc->context->ticks_per_frame, ffmpegenc->context->time_base);
 
 send_frame:
+  if (!picture) {
+    GstFFMpegVidEncClass *oclass =
+        (GstFFMpegVidEncClass *) (G_OBJECT_GET_CLASS (ffmpegenc));
+
+    /* If AV_CODEC_CAP_ENCODER_FLUSH wasn't set, we need to re-open
+     * encoder */
+    if (!(oclass->in_plugin->capabilities & AV_CODEC_CAP_ENCODER_FLUSH)) {
+      GST_DEBUG_OBJECT (ffmpegenc, "Encoder needs reopen later");
+
+      /* we will reopen later handle_frame() */
+      ffmpegenc->need_reopen = TRUE;
+    }
+  }
+
   res = avcodec_send_frame (ffmpegenc->context, picture);
 
   if (picture)
@@ -626,7 +675,7 @@ gst_ffmpegvidenc_receive_packet (GstFFMpegVidEnc * ffmpegenc,
     ret = GST_FLOW_EOS;
     goto done;
   } else if (res < 0) {
-    res = GST_FLOW_ERROR;
+    ret = GST_FLOW_ERROR;
     goto done;
   }
 
@@ -654,6 +703,15 @@ gst_ffmpegvidenc_receive_packet (GstFFMpegVidEnc * ffmpegenc,
       GST_VIDEO_CODEC_FRAME_UNSET_SYNC_POINT (frame);
   }
 
+  frame->dts =
+      gst_ffmpeg_time_ff_to_gst (pkt->dts, ffmpegenc->context->time_base);
+  /* This will lose some precision compared to setting the PTS from the input
+   * buffer directly, but that way we're sure PTS and DTS are consistent, in
+   * particular DTS should always be <= PTS
+   */
+  frame->pts =
+      gst_ffmpeg_time_ff_to_gst (pkt->pts, ffmpegenc->context->time_base);
+
   ret = gst_video_encoder_finish_frame (GST_VIDEO_ENCODER (ffmpegenc), frame);
 
 done:
@@ -667,6 +725,30 @@ gst_ffmpegvidenc_handle_frame (GstVideoEncoder * encoder,
   GstFFMpegVidEnc *ffmpegenc = (GstFFMpegVidEnc *) encoder;
   GstFlowReturn ret;
   gboolean got_packet;
+
+  /* endoder was drained or flushed, and ffmpeg encoder doesn't support
+   * flushing. We need to re-open encoder then */
+  if (ffmpegenc->need_reopen) {
+    gboolean reopen_ret;
+    GstVideoCodecState *input_state;
+
+    GST_DEBUG_OBJECT (ffmpegenc, "Open encoder again");
+
+    if (!ffmpegenc->input_state) {
+      GST_ERROR_OBJECT (ffmpegenc,
+          "Cannot re-open encoder without input state");
+      return GST_FLOW_NOT_NEGOTIATED;
+    }
+
+    input_state = gst_video_codec_state_ref (ffmpegenc->input_state);
+    reopen_ret = gst_ffmpegvidenc_set_format (encoder, input_state);
+    gst_video_codec_state_unref (input_state);
+
+    if (!reopen_ret) {
+      GST_ERROR_OBJECT (ffmpegenc, "Couldn't re-open encoder");
+      return GST_FLOW_NOT_NEGOTIATED;
+    }
+  }
 
   ret = gst_ffmpegvidenc_send_frame (ffmpegenc, frame);
 
@@ -721,8 +803,17 @@ gst_ffmpegvidenc_flush_buffers (GstFFMpegVidEnc * ffmpegenc, gboolean send)
     if (ret != GST_FLOW_OK)
       break;
   } while (got_packet);
+  avcodec_flush_buffers (ffmpegenc->context);
 
 done:
+  /* FFMpeg will return AVERROR_EOF if it's internal was fully drained
+   * then we are translating it to GST_FLOW_EOS. However, because this behavior
+   * is fully internal stuff of this implementation and gstvideoencoder
+   * baseclass doesn't convert this GST_FLOW_EOS to GST_FLOW_OK,
+   * convert this flow returned here */
+  if (ret == GST_FLOW_EOS)
+    ret = GST_FLOW_OK;
+
   return ret;
 }
 
@@ -801,12 +892,17 @@ gst_ffmpegvidenc_start (GstVideoEncoder * encoder)
   GstFFMpegVidEncClass *oclass =
       (GstFFMpegVidEncClass *) G_OBJECT_GET_CLASS (ffmpegenc);
 
+  ffmpegenc->opened = FALSE;
+  ffmpegenc->need_reopen = FALSE;
+
   /* close old session */
   gst_ffmpeg_avcodec_close (ffmpegenc->context);
   if (avcodec_get_context_defaults3 (ffmpegenc->context, oclass->in_plugin) < 0) {
     GST_DEBUG_OBJECT (ffmpegenc, "Failed to set context defaults");
     return FALSE;
   }
+
+  gst_video_encoder_set_min_pts (encoder, GST_SECOND * 60 * 60 * 1000);
 
   return TRUE;
 }
@@ -819,6 +915,7 @@ gst_ffmpegvidenc_stop (GstVideoEncoder * encoder)
   gst_ffmpegvidenc_flush_buffers (ffmpegenc, FALSE);
   gst_ffmpeg_avcodec_close (ffmpegenc->context);
   ffmpegenc->opened = FALSE;
+  ffmpegenc->need_reopen = FALSE;
 
   if (ffmpegenc->input_state) {
     gst_video_codec_state_unref (ffmpegenc->input_state);
@@ -893,30 +990,18 @@ gst_ffmpegvidenc_register (GstPlugin * plugin)
       continue;
     }
 
-    if (strstr (in_plugin->name, "vaapi")) {
+    /* Skip hardware or hybrid (hardware with software fallback) */
+    if ((in_plugin->capabilities & AV_CODEC_CAP_HARDWARE) ==
+        AV_CODEC_CAP_HARDWARE) {
       GST_DEBUG
-          ("Ignoring VAAPI encoder %s. We can't handle this outside of ffmpeg",
+          ("Ignoring hardware encoder %s. We can't handle this outside of ffmpeg",
           in_plugin->name);
       continue;
     }
 
-    if (strstr (in_plugin->name, "nvenc")) {
+    if ((in_plugin->capabilities & AV_CODEC_CAP_HYBRID) == AV_CODEC_CAP_HYBRID) {
       GST_DEBUG
-          ("Ignoring nvenc encoder %s. We can't handle this outside of ffmpeg",
-          in_plugin->name);
-      continue;
-    }
-
-    if (g_str_has_suffix (in_plugin->name, "_qsv")) {
-      GST_DEBUG
-          ("Ignoring qsv encoder %s. We can't handle this outside of ffmpeg",
-          in_plugin->name);
-      continue;
-    }
-
-    if (g_str_has_suffix (in_plugin->name, "_v4l2m2m")) {
-      GST_DEBUG
-          ("Ignoring V4L2 mem-to-mem encoder %s. We can't handle this outside of ffmpeg",
+          ("Ignoring hybrid encoder %s. We can't handle this outside of ffmpeg",
           in_plugin->name);
       continue;
     }
