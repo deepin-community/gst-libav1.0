@@ -34,6 +34,7 @@
 #include <libavutil/opt.h>
 
 #include <gst/gst.h>
+#include <gst/base/base.h>
 
 #include "gstav.h"
 #include "gstavcfg.h"
@@ -175,10 +176,8 @@ gst_ffmpegaudenc_finalize (GObject * object)
 
   /* clean up remaining allocated data */
   av_frame_free (&ffmpegaudenc->frame);
-  gst_ffmpeg_avcodec_close (ffmpegaudenc->context);
-  gst_ffmpeg_avcodec_close (ffmpegaudenc->refcontext);
-  av_free (ffmpegaudenc->context);
-  av_free (ffmpegaudenc->refcontext);
+  avcodec_free_context (&ffmpegaudenc->context);
+  avcodec_free_context (&ffmpegaudenc->refcontext);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -193,9 +192,9 @@ gst_ffmpegaudenc_start (GstAudioEncoder * encoder)
   ffmpegaudenc->opened = FALSE;
   ffmpegaudenc->need_reopen = FALSE;
 
-  gst_ffmpeg_avcodec_close (ffmpegaudenc->context);
-  if (avcodec_get_context_defaults3 (ffmpegaudenc->context,
-          oclass->in_plugin) < 0) {
+  avcodec_free_context (&ffmpegaudenc->context);
+  ffmpegaudenc->context = avcodec_alloc_context3 (oclass->in_plugin);
+  if (ffmpegaudenc->context == NULL) {
     GST_DEBUG_OBJECT (ffmpegaudenc, "Failed to set context defaults");
     return FALSE;
   }
@@ -241,10 +240,10 @@ gst_ffmpegaudenc_set_format (GstAudioEncoder * encoder, GstAudioInfo * info)
 
   /* close old session */
   if (ffmpegaudenc->opened) {
-    gst_ffmpeg_avcodec_close (ffmpegaudenc->context);
+    avcodec_free_context (&ffmpegaudenc->context);
     ffmpegaudenc->opened = FALSE;
-    if (avcodec_get_context_defaults3 (ffmpegaudenc->context,
-            oclass->in_plugin) < 0) {
+    ffmpegaudenc->context = avcodec_alloc_context3 (oclass->in_plugin);
+    if (ffmpegaudenc->context == NULL) {
       GST_DEBUG_OBJECT (ffmpegaudenc, "Failed to set context defaults");
       return FALSE;
     }
@@ -286,11 +285,11 @@ gst_ffmpegaudenc_set_format (GstAudioEncoder * encoder, GstAudioInfo * info)
   /* open codec */
   if (gst_ffmpeg_avcodec_open (ffmpegaudenc->context, oclass->in_plugin) < 0) {
     gst_caps_unref (allowed_caps);
-    gst_ffmpeg_avcodec_close (ffmpegaudenc->context);
+    avcodec_free_context (&ffmpegaudenc->context);
     GST_DEBUG_OBJECT (ffmpegaudenc, "avenc_%s: Failed to open FFMPEG codec",
         oclass->in_plugin->name);
-    if (avcodec_get_context_defaults3 (ffmpegaudenc->context,
-            oclass->in_plugin) < 0)
+    ffmpegaudenc->context = avcodec_alloc_context3 (oclass->in_plugin);
+    if (ffmpegaudenc->context == NULL)
       GST_DEBUG_OBJECT (ffmpegaudenc, "Failed to set context defaults");
 
     if ((oclass->in_plugin->capabilities & AV_CODEC_CAP_EXPERIMENTAL) &&
@@ -312,10 +311,10 @@ gst_ffmpegaudenc_set_format (GstAudioEncoder * encoder, GstAudioInfo * info)
 
   if (!other_caps) {
     gst_caps_unref (allowed_caps);
-    gst_ffmpeg_avcodec_close (ffmpegaudenc->context);
+    avcodec_free_context (&ffmpegaudenc->context);
     GST_DEBUG ("Unsupported codec - no caps found");
-    if (avcodec_get_context_defaults3 (ffmpegaudenc->context,
-            oclass->in_plugin) < 0)
+    ffmpegaudenc->context = avcodec_alloc_context3 (oclass->in_plugin);
+    if (ffmpegaudenc->context == NULL)
       GST_DEBUG_OBJECT (ffmpegaudenc, "Failed to set context defaults");
     return FALSE;
   }
@@ -331,10 +330,10 @@ gst_ffmpegaudenc_set_format (GstAudioEncoder * encoder, GstAudioInfo * info)
 
   if (!gst_audio_encoder_set_output_format (GST_AUDIO_ENCODER (ffmpegaudenc),
           icaps)) {
-    gst_ffmpeg_avcodec_close (ffmpegaudenc->context);
+    avcodec_free_context (&ffmpegaudenc->context);
     gst_caps_unref (icaps);
-    if (avcodec_get_context_defaults3 (ffmpegaudenc->context,
-            oclass->in_plugin) < 0)
+    ffmpegaudenc->context = avcodec_alloc_context3 (oclass->in_plugin);
+    if (ffmpegaudenc->context == NULL)
       GST_DEBUG_OBJECT (ffmpegaudenc, "Failed to set context defaults");
     return FALSE;
   }
@@ -403,8 +402,8 @@ buffer_info_free (void *opaque, guint8 * data)
     gst_buffer_unmap (info->buffer, &info->map);
     gst_buffer_unref (info->buffer);
   } else {
-    av_free (info->ext_data);
-    av_free (info->ext_data_array);
+    av_freep (&info->ext_data);
+    av_freep (&info->ext_data_array);
   }
   g_slice_free (BufferInfo, info);
 }
@@ -586,12 +585,33 @@ gst_ffmpegaudenc_receive_packet (GstFFMpegAudEnc * ffmpegaudenc,
 
   if (res == 0) {
     GstBuffer *outbuf;
+    const uint8_t *side_data;
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(58,130,0)
+    size_t side_data_length = 0;
+#else
+    int side_data_length = 0;
+#endif
 
     GST_LOG_OBJECT (ffmpegaudenc, "pushing size %d", pkt->size);
 
     outbuf =
         gst_buffer_new_wrapped_full (GST_MEMORY_FLAG_READONLY, pkt->data,
         pkt->size, 0, pkt->size, pkt, gst_ffmpegaudenc_free_avpacket);
+
+    if ((side_data =
+            av_packet_get_side_data (pkt, AV_PKT_DATA_SKIP_SAMPLES,
+                &side_data_length)) && side_data_length == 10) {
+      GstByteReader reader = GST_BYTE_READER_INIT (pkt->data, pkt->size);
+      guint32 start, end;
+
+      start = gst_byte_reader_get_uint32_le_unchecked (&reader);
+      end = gst_byte_reader_get_uint32_le_unchecked (&reader);
+
+      GST_LOG_OBJECT (ffmpegaudenc,
+          "got skip samples side data with start %u and end %u", start, end);
+      gst_buffer_add_audio_clipping_meta (outbuf, GST_FORMAT_DEFAULT, start,
+          end);
+    }
 
     ret =
         gst_audio_encoder_finish_frame (enc, outbuf,

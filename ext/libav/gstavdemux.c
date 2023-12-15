@@ -1104,10 +1104,12 @@ static const struct
   "artist", GST_TAG_ARTIST}, {
   "comment", GST_TAG_COMMENT}, {
   "composer", GST_TAG_COMPOSER}, {
-  "copyright", GST_TAG_COPYRIGHT}, {
-    /* Need to convert ISO 8601 to GstDateTime: */
-  "creation_time", GST_TAG_DATE_TIME}, {
-    /* Need to convert ISO 8601 to GDateTime: */
+  "copyright", GST_TAG_COPYRIGHT},
+      /* Need to convert ISO 8601 to GstDateTime: */
+  {
+  "creation_time", GST_TAG_DATE_TIME},
+      /* Need to convert ISO 8601 to GDateTime: */
+  {
   "date", GST_TAG_DATE_TIME}, {
   "disc", GST_TAG_ALBUM_VOLUME_NUMBER}, {
   "encoder", GST_TAG_ENCODER}, {
@@ -1738,6 +1740,7 @@ gst_ffmpegdemux_sink_event (GstPad * sinkpad, GstObject * parent,
       goto done;
     case GST_EVENT_STREAM_START:
     case GST_EVENT_CAPS:
+    case GST_EVENT_SEGMENT:
       GST_LOG_OBJECT (demux, "dropping %s event", GST_EVENT_TYPE_NAME (event));
       gst_event_unref (event);
       goto done;
@@ -2107,6 +2110,11 @@ gst_ffmpegdemux_register (GstPlugin * plugin)
     /* Set the rank of demuxers known to work to MARGINAL.
      * Set demuxers for which we already have another implementation to NONE
      * Set All others to NONE*/
+    /**
+     * element-avdemux_xwma
+     *
+     * Since: 1.20
+     */
     if (!strcmp (in_plugin->name, "wsvqa") ||
         !strcmp (in_plugin->name, "wsaud") ||
         !strcmp (in_plugin->name, "wc3movie") ||
@@ -2134,6 +2142,7 @@ gst_ffmpegdemux_register (GstPlugin * plugin)
         !strcmp (in_plugin->name, "daud") ||
         !strcmp (in_plugin->name, "avs") ||
         !strcmp (in_plugin->name, "aiff") ||
+        !strcmp (in_plugin->name, "xwma") ||
         !strcmp (in_plugin->name, "4xm") ||
         !strcmp (in_plugin->name, "yuv4mpegpipe") ||
         !strcmp (in_plugin->name, "pva") ||

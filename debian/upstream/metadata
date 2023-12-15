@@ -1,4 +1,4 @@
-Name: GStreamer ffmpeg Plug-ins
-Bug-Database: http://gitlab.freedesktop.org/gstreamer/gst-libav/issues
-Repository: https://gitlab.freedesktop.org/gstreamer/gst-libav.git
-Repository-Browse: http://gitlab.freedesktop.org/gstreamer/gst-libav
+Bug-Database: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues
+Bug-Submit: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/new
+Repository: https://gitlab.freedesktop.org/gstreamer/gstreamer.git
+Repository-Browse: https://gitlab.freedesktop.org/gstreamer/gstreamer
