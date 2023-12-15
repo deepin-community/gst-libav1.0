@@ -244,7 +244,7 @@ gst_ffmpeg_video_set_pix_fmts (GstCaps * caps, const enum AVPixelFormat *fmts)
  * but I'm too lazy today. Maybe later.
  */
 static GstCaps *
-gst_ff_vid_caps_new (AVCodecContext * context, AVCodec * codec,
+gst_ff_vid_caps_new (AVCodecContext * context, const AVCodec * codec,
     enum AVCodecID codec_id, gboolean encode, const char *mimetype,
     const char *fieldname, ...)
 {
@@ -1233,6 +1233,21 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
       break;
     }
 
+    case AV_CODEC_ID_XMA1:
+    {
+      caps =
+          gst_ff_aud_caps_new (context, NULL, codec_id, encode, "audio/x-xma",
+          "xmaversion", G_TYPE_INT, 1, NULL);
+      break;
+    }
+    case AV_CODEC_ID_XMA2:
+    {
+      caps =
+          gst_ff_aud_caps_new (context, NULL, codec_id, encode, "audio/x-xma",
+          "xmaversion", G_TYPE_INT, 2, NULL);
+      break;
+    }
+
     case AV_CODEC_ID_MACE3:
     case AV_CODEC_ID_MACE6:
     {
@@ -1276,6 +1291,11 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
         g_value_unset (&item);
         gst_caps_set_value (caps, "stream-format", &arr);
         g_value_unset (&arr);
+
+        gst_caps_append (caps, gst_ff_vid_caps_new (context, NULL, codec_id,
+                encode, "video/x-h264", "alignment", G_TYPE_STRING, "nal",
+                "stream-format", G_TYPE_STRING, "byte-stream", NULL));
+
       } else if (context) {
         /* FIXME: ffmpeg currently assumes AVC if there is extradata and
          * byte-stream otherwise. See for example the MOV or MPEG-TS code.
@@ -1983,6 +2003,7 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
     case AV_CODEC_ID_ADPCM_IMA_WAV:
     case AV_CODEC_ID_ADPCM_IMA_DK3:
     case AV_CODEC_ID_ADPCM_IMA_DK4:
+    case AV_CODEC_ID_ADPCM_IMA_OKI:
     case AV_CODEC_ID_ADPCM_IMA_WS:
     case AV_CODEC_ID_ADPCM_IMA_SMJPEG:
     case AV_CODEC_ID_ADPCM_IMA_AMV:
@@ -2021,6 +2042,9 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
           break;
         case AV_CODEC_ID_ADPCM_IMA_DK4:
           layout = "dk4";
+          break;
+        case AV_CODEC_ID_ADPCM_IMA_OKI:
+          layout = "oki";
           break;
         case AV_CODEC_ID_ADPCM_IMA_WS:
           layout = "westwood";
@@ -2331,7 +2355,7 @@ gst_ffmpeg_codecid_to_caps (enum AVCodecID codec_id,
   }
 
   if (buildcaps) {
-    AVCodec *codec;
+    const AVCodec *codec;
 
     if ((codec = avcodec_find_decoder (codec_id)) ||
         (codec = avcodec_find_encoder (codec_id))) {
@@ -2538,7 +2562,7 @@ gst_ffmpeg_codectype_to_audio_caps (AVCodecContext * context,
 
 GstCaps *
 gst_ffmpeg_codectype_to_video_caps (AVCodecContext * context,
-    enum AVCodecID codec_id, gboolean encode, AVCodec * codec)
+    enum AVCodecID codec_id, gboolean encode, const AVCodec * codec)
 {
   GstCaps *caps;
 
@@ -2858,6 +2882,8 @@ static const PixToFmt pixtofmttable[] = {
   {GST_VIDEO_FORMAT_GBRA, AV_PIX_FMT_GBRAP},
   {GST_VIDEO_FORMAT_GBR_10LE, AV_PIX_FMT_GBRP10LE},
   {GST_VIDEO_FORMAT_GBR_10BE, AV_PIX_FMT_GBRP10BE},
+  {GST_VIDEO_FORMAT_GBRA_10LE, AV_PIX_FMT_GBRAP10LE},
+  {GST_VIDEO_FORMAT_GBRA_10BE, AV_PIX_FMT_GBRAP10BE},
   {GST_VIDEO_FORMAT_GBR_12LE, AV_PIX_FMT_GBRP12LE},
   {GST_VIDEO_FORMAT_GBR_12BE, AV_PIX_FMT_GBRP12BE},
   {GST_VIDEO_FORMAT_GBRA_12LE, AV_PIX_FMT_GBRAP12LE},
@@ -2975,6 +3001,7 @@ gst_ffmpeg_videoinfo_to_context (GstVideoInfo * info, AVCodecContext * context)
     context->color_range = AVCOL_RANGE_JPEG;
   } else {
     context->color_range = AVCOL_RANGE_MPEG;
+    context->strict_std_compliance = FF_COMPLIANCE_UNOFFICIAL;
   }
 }
 
@@ -3993,6 +4020,21 @@ gst_ffmpeg_caps_to_codecid (const GstCaps * caps, AVCodecContext * context)
     }
     if (id != AV_CODEC_ID_NONE)
       audio = TRUE;
+  } else if (!strcmp (mimetype, "audio/x-xma")) {
+    gint xmaversion = 0;
+
+    if (gst_structure_get_int (structure, "xmaversion", &xmaversion)) {
+      switch (xmaversion) {
+        case 1:
+          id = AV_CODEC_ID_XMA1;
+          break;
+        case 2:
+          id = AV_CODEC_ID_XMA2;
+          break;
+      }
+    }
+    if (id != AV_CODEC_ID_NONE)
+      audio = TRUE;
   } else if (!strcmp (mimetype, "audio/x-wms")) {
     id = AV_CODEC_ID_WMAVOICE;
     audio = TRUE;
@@ -4167,6 +4209,8 @@ gst_ffmpeg_caps_to_codecid (const GstCaps * caps, AVCodecContext * context)
       id = AV_CODEC_ID_ADPCM_IMA_DK3;
     } else if (!strcmp (layout, "dk4")) {
       id = AV_CODEC_ID_ADPCM_IMA_DK4;
+    } else if (!strcmp (layout, "oki")) {
+      id = AV_CODEC_ID_ADPCM_IMA_OKI;
     } else if (!strcmp (layout, "westwood")) {
       id = AV_CODEC_ID_ADPCM_IMA_WS;
     } else if (!strcmp (layout, "iss")) {
@@ -4330,7 +4374,7 @@ gst_ffmpeg_caps_to_codecid (const GstCaps * caps, AVCodecContext * context)
     audio = TRUE;
   } else if (!strncmp (mimetype, "audio/x-gst-av-", 15)) {
     gchar ext[16];
-    AVCodec *codec;
+    const AVCodec *codec;
 
     if (strlen (mimetype) <= 30 &&
         sscanf (mimetype, "audio/x-gst-av-%s", ext) == 1) {
@@ -4342,7 +4386,7 @@ gst_ffmpeg_caps_to_codecid (const GstCaps * caps, AVCodecContext * context)
     }
   } else if (!strncmp (mimetype, "video/x-gst-av-", 15)) {
     gchar ext[16];
-    AVCodec *codec;
+    const AVCodec *codec;
 
     if (strlen (mimetype) <= 30 &&
         sscanf (mimetype, "video/x-gst-av-%s", ext) == 1) {

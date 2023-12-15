@@ -1,3 +1,130 @@
+gst-libav1.0 (1.22.7-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream version 1.22.7
+
+ -- Marc Leeman <marc.leeman@gmail.com>  Tue, 14 Nov 2023 13:59:36 +0100
+
+gst-libav1.0 (1.22.6-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 25 Sep 2023 14:09:54 -0400
+
+gst-libav1.0 (1.22.5-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sat, 29 Jul 2023 17:06:51 +0300
+
+gst-libav1.0 (1.22.4-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Thu, 29 Jun 2023 08:53:17 -0400
+
+gst-libav1.0 (1.22.3-2) unstable; urgency=medium
+
+  * Release to unstable
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 12 Jun 2023 14:33:41 -0400
+
+gst-libav1.0 (1.22.3-1) experimental; urgency=medium
+
+  * Team upload
+  * New upstream release
+  * Add debian/upstream/metadata
+  * debian/rules: Enable all hardening flags
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 19 May 2023 15:00:41 -0400
+
+gst-libav1.0 (1.22.2-1) experimental; urgency=medium
+
+  * Team upload
+  * New upstream bugfix release (LP: #2015943)
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 11 Apr 2023 20:34:35 -0400
+
+gst-libav1.0 (1.22.1-1) experimental; urgency=medium
+
+  * Team upload
+  * New upstream bugfix release (LP: #2015129)
+  * Drop patch that skipped a build test
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 03 Apr 2023 18:46:07 -0400
+
+gst-libav1.0 (1.22.0-2) unstable; urgency=medium
+
+  * Release to unstable
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Sat, 28 Jan 2023 14:36:03 -0500
+
+gst-libav1.0 (1.22.0-1) experimental; urgency=medium
+
+  * Team upload
+  * New upstream release
+  * Bump minimum gstreamer and meson
+  * debian/rules: Set -Dauto_features=enabled
+  * Update standards version to 4.6.2, no changes needed
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Fri, 27 Jan 2023 11:34:42 -0500
+
+gst-libav1.0 (1.20.5-1) unstable; urgency=medium
+
+  * Team upload
+
+  [ Jeremy Bicha ]
+  * New upstream release
+  * Add debian/upstream/signing-key.asc and update debian/watch to use it
+  * Don't ignore build test failures on amd64 & arm64
+  * Set Rules-Requires-Root: no
+  * Update standards version to 4.6.1, no changes needed
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since buster (oldstable)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Thu, 05 Jan 2023 14:20:14 -0500
+
+gst-libav1.0 (1.20.3-1) unstable; urgency=medium
+
+  [ Sebastian Dröge ]
+  * New upstream bugfix release.
+
+  [ Debian Janitor ]
+  * Use correct machine-readable copyright file URI.
+  * Use secure URI in debian/watch.
+  * Update standards version to 4.5.1, no changes needed.
+  * Remove Section on gstreamer1.0-libav that duplicates source.
+
+ -- Sebastian Dröge <slomo@debian.org>  Tue, 21 Jun 2022 09:18:07 +0300
+
+gst-libav1.0 (1.20.2-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+
+ -- Sebastian Dröge <slomo@debian.org>  Tue, 03 May 2022 10:10:45 +0300
+
+gst-libav1.0 (1.20.1-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+
+ -- Sebastian Dröge <slomo@debian.org>  Mon, 14 Mar 2022 17:25:16 +0200
+
+gst-libav1.0 (1.20.0-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Sebastian Dröge <slomo@debian.org>  Fri, 04 Feb 2022 09:01:57 +0200
+
+gst-libav1.0 (1.19.90-1) experimental; urgency=medium
+
+  * New upstream release candidate.
+
+ -- Sebastian Dröge <slomo@debian.org>  Fri, 28 Jan 2022 18:34:10 +0200
+
 gst-libav1.0 (1.18.5-1) unstable; urgency=medium
 
   * New upstream bugfix release.
