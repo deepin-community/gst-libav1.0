@@ -1,76 +1,376 @@
-=== release 1.22.7 ===
+=== release 1.24.2 ===
 
-2023-11-13 11:04:22 +0000  Tim-Philipp Müller <tim@centricular.com>
+2024-04-09 21:48:55 +0100  Tim-Philipp Müller <tim@centricular.com>
 
 	* NEWS:
 	* RELEASE:
 	* gst-libav.doap:
 	* meson.build:
-	  Release 1.22.7
+	  Release 1.24.2
 
-2023-09-20 19:41:00 +0100  Tim-Philipp Müller <tim@centricular.com>
+2024-04-05 02:28:53 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Fix AVPacket leak
+	  av_packet_unref() does not release allocated memory.
+	  av_packet_free() is the correct free function.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6545>
+
+2024-03-22 01:38:06 +0100  Tim-Philipp Müller <tim@centricular.com>
 
 	* meson.build:
 	  Back to development
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5371>
 
-=== release 1.22.6 ===
+=== release 1.24.1 ===
 
-2023-09-20 18:10:57 +0100  Tim-Philipp Müller <tim@centricular.com>
+2024-03-21 21:47:53 +0100  Tim-Philipp Müller <tim@centricular.com>
 
 	* NEWS:
 	* RELEASE:
 	* gst-libav.doap:
 	* meson.build:
-	  Release 1.22.6
+	  Release 1.24.1
 
-2023-07-20 16:57:47 +0100  Tim-Philipp Müller <tim@centricular.com>
+2024-03-14 13:30:24 +0100  Piotr Brzeziński <piotr@centricular.com>
+
+	* ext/libav/gstavaudenc.c:
+	  avaudenc: Avoid double-freeing frame's extended data
+	  This occured when attempting to encode 16 channel audio, would crash on the first buffer.
+	  We only need to store ext_data, old ext_data_array (frame->extended_data) is already freed by `av_frame_unref`.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6375>
+
+2024-03-12 12:18:50 +0100  Piotr Brzeziński <piotr@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	  avcodecmap: Increase max AAC channels to 16
+	  This is the maximum amount supported by aacenc. 8-channel output fully works.
+	  16-channel also encodes fine, but codec-utils isn't able to parse its channel config,
+	  so output level will not be shown in caps. For that to work, GASpecificConfig parsing
+	  needs to be implemented. It's not a critical issue and can be worked on at a later date.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6375>
+
+2024-03-08 10:53:16 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Fix how we get back the codec frame
+	  With the new copy_opaque system, the corresponding frame is stored in the
+	  picture opaque ref.
+	  This also handles the case where the "regular" opaque might be empty in the
+	  case of "DECODE_ONLY" frames, since it that field is set in `get_buffer2()`
+	  which might not be called for those frames
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6331>
+
+2024-03-08 10:50:25 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Improve debug statements
+	  Add SFN to better track what is going on
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6331>
+
+2024-03-07 20:45:45 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Fix interlaced mode detection
+	  Fixing regression introduced by the commit b46559102bf5934986da20f895920401dcc28237
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6297>
+
+2024-03-05 13:45:27 +0000  Tim-Philipp Müller <tim@centricular.com>
 
 	* meson.build:
 	  Back to development
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5082>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6264>
 
-=== release 1.22.5 ===
+=== release 1.24.0 ===
 
-2023-07-20 15:22:48 +0100  Tim-Philipp Müller <tim@centricular.com>
+2024-03-04 23:51:42 +0000  Tim-Philipp Müller <tim@centricular.com>
 
 	* NEWS:
 	* RELEASE:
 	* gst-libav.doap:
 	* meson.build:
-	  Release 1.22.5
+	  Release 1.24.0
 
-2023-06-20 19:10:38 +0100  Tim-Philipp Müller <tim@centricular.com>
+2024-02-26 09:27:40 +0100  Edward Hervey <edward@centricular.com>
+
+	* RELEASE:
+	  docs: Use Discourse and Matrix as prefered communication channels
+	  Part of: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6220
+
+=== release 1.23.90 ===
+
+2024-02-23 18:20:11 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.23.90
+
+2024-02-23 11:00:36 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* meson.build:
+	  libav: Don't add `-Werror=deprecated-declarations`
+	  It will fail the build for anybody who has an older FFmpeg version
+	  than 6.1 and doesn't use the FFmpeg subproject.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6199>
+
+2024-02-22 23:13:53 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Fix crash with FFmpeg n6.0
+	  FFmpeg version 6.0 has an AV_CODEC_FLAG_COPY_OPAQUE related bug.
+	  See https://github.com/FFmpeg/FFmpeg/commit/a3bf63c26e6197a9b6e490538667368530a9dcd3
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6184>
+
+2024-02-15 16:38:53 +0000  Tim-Philipp Müller <tim@centricular.com>
 
 	* meson.build:
 	  Back to development
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4907>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6126>
 
-=== release 1.22.4 ===
+=== release 1.23.2 ===
 
-2023-06-20 17:42:25 +0100  Tim-Philipp Müller <tim@centricular.com>
+2024-02-15 15:37:17 +0000  Tim-Philipp Müller <tim@centricular.com>
 
 	* NEWS:
 	* RELEASE:
 	* gst-libav.doap:
 	* meson.build:
-	  Release 1.22.4
+	  Release 1.23.2
 
-2023-05-19 12:36:19 +0100  Tim-Philipp Müller <tim@centricular.com>
+2024-02-08 15:50:43 +0100  Edward Hervey <edward@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavdemux.c:
+	  musepack: Prefer using FFmpeg musepack decoder/demuxer
+	  * Bump the rank of the musepack v7/v8 FFmpeg demuxers to SECONDARY
+	  * Bump the rank of the musepack v7/v8 FFmpeg audio decoders to SECONDARY
+	  * Demote the rank of the musepackdec element to MARGINAL
+	  This is for two reasons:
+	  * The musepack library is no longer maintained, whereas the FFmpeg
+	  implementation can/will receive fixes
+	  * The `musepackdec` implementation was a all-in-one "parsing and decoding" blob
+	  which doesn't play nicely with decodebin3 and others
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3033
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6074>
+
+2024-02-06 18:09:02 +0000  Tim-Philipp Müller <tim@centricular.com>
 
 	* meson.build:
 	  Back to development
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4679>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6066>
 
-=== release 1.22.3 ===
+=== release 1.23.1 ===
 
-2023-05-19 09:23:19 +0100  Tim-Philipp Müller <tim@centricular.com>
+2024-02-06 16:37:19 +0000  Tim-Philipp Müller <tim@centricular.com>
 
 	* NEWS:
 	* RELEASE:
 	* gst-libav.doap:
 	* meson.build:
-	  Release 1.22.3
+	  Release 1.23.1
+
+2024-01-28 11:15:01 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  meson: bump Meson requirement to >= 1.1 for all modules
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6002>
+
+2024-01-17 17:24:49 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: Use proper version guard
+	  Just like we do with avviddec
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5931>
+
+2023-08-14 23:19:01 -0300  L. E. Segovia <amy@centricular.com>
+
+	* meson.build:
+	  meson: Ensure FFmpeg deprecated APIs are rejected
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5186>
+
+2024-01-14 15:47:15 -0300  L. E. Segovia <amy@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  libav: Port deprecated AVFrame fields to flags
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5186>
+
+2024-01-14 15:46:17 -0300  L. E. Segovia <amy@centricular.com>
+
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  libav: Port AVCodecContext.ticks_per_frame to AV_CODEC_PROP_FIELDS
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5186>
+
+2023-08-14 23:17:59 -0300  L. E. Segovia <amy@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  libav: Port reordered_opaque usage to ref-counted opaque_ref
+	  Instead of passing along the system frame number, we pass along a reference to
+	  the GstVideoCodecFrame.
+	  In order for all internal cleanup to happen properly, this also requires
+	  switching to the proper AVPacket creation/destruction methods (av_packet_alloc()
+	  and av_packet_unref())
+	  Fixes #2568
+	  Co-authored-by: Edward Hervey <edward@centricular.com>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5186>
+
+2023-08-14 22:32:19 -0300  L. E. Segovia <amy@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  libav: Port frame counting to frame_num
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5186>
+
+2023-08-14 22:28:00 -0300  L. E. Segovia <amy@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavcodecmap.h:
+	* ext/libav/gstavdemux.c:
+	  libav: Port channel layout and counting to AVChannelLayout
+	  Fixes #2833
+	  Co-authored-by: Edward Hervey <edward@centricular.com>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5186>
+
+2023-11-04 10:59:39 +0000  Philippe Normand <philn@igalia.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Calculate latency only for fixed framerate
+	  The framerate was checked correctly in _negotiate, but not in _set_format.
+	  Also fix loss of precision in _negotiate when calculating the framerate.
+	  Fixes #3093
+	  Co-authored-by: Sebastian Dröge <sebastian@centricular.com>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5600>
+
+2023-11-17 01:01:36 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Unlock stream lock while waiting for decoded frame
+	  FFmpeg might request buffer from other threads, it will result
+	  in deadlock
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2558
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5681>
+
+2023-11-02 00:03:28 +0900  Seungha Yang <seungha@centricular.com>
+
+	* meson.build:
+	  meson: Fix MSVC build with GST_DISABLE_GST_DEBUG
+	  MSVC does not understand Wno-unused
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5585>
+
+2023-10-22 08:06:29 +0300  Jordan Petridis <jordan@centricular.com>
+
+	* meson.build:
+	  meson: Fix typo
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5526>
+
+2020-07-10 12:16:35 +0300  Jordan Petridis <jordan@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	  ci: switch the Fedora base image to f34
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1060>
+
+2023-10-19 08:34:56 +0200  Guillaume Desmottes <guillaume.desmottes@onestream.live>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcfg.c:
+	  libav: expose fake booleans properties as enums
+	  Some ffmpeg options claims to be booleans but are actually 3-values enums
+	  with -1 as default instead of 1 or 0. Handle those using a custom enum
+	  so we keep the same defaults as ffmpeg and users can properly configure them
+	  if they need to.
+	  See https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3035
+	  for an actual example of this problem. The GStreamer element was
+	  automatically enabling a non-default option, leading to strange behavior
+	  in the AAC encoder.
+	  Fix #3035
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5507>
+
+2023-09-21 08:43:19 +1200  Chris Wiggins <chris@chriswiggins.co.nz>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	  avcodecmap: Add MxPEG codec ID
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5361>
+
+2023-07-05 18:46:25 -0600  Olivier Crête <olivier.crete@collabora.com>
+
+	* scripts/gen-changelog.py:
+	  gst-omx: Retire the whole package
+	  The OpenMAX standard is long dead and even the Raspberry Pi OS
+	  no longer supports it.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4976>
+
+2023-07-12 09:27:22 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* tests/check/meson.build:
+	  meson: Always use forward slashes in defines with paths
+	  Fixes the following build failure on MSYS2:
+	  ```
+	  ../subprojects/gstreamer/tests/check/elements/filesrc.c: In function 'test_seeking':
+	  ../subprojects/gstreamer/tests/check/elements/filesrc.c:107:53: error: incomplete universal character name \U
+	  107 |   g_object_set (G_OBJECT (src), "location", TESTFILE, NULL);
+	  |                                                     ^
+	  ../subprojects/gstreamer/tests/check/elements/filesrc.c:107:53: warning: unknown escape sequence: '\A'
+	  ../subprojects/gstreamer/tests/check/elements/filesrc.c:107:53: warning: unknown escape sequence: '\g'
+	  ../subprojects/gstreamer/tests/check/elements/filesrc.c:107:53: warning: unknown escape sequence: '\s'
+	  ../subprojects/gstreamer/tests/check/elements/filesrc.c:107:53: warning: unknown escape sequence: '\g'
+	  ../subprojects/gstreamer/tests/check/elements/filesrc.c:107:53: warning: unknown escape sequence: '\c'
+	  ```
+	  Due to: `-DTESTFILE=\"C:\\Users\\Administrator\[...]`
+	  https://gitlab.freedesktop.org/nirbheek/gstreamer/-/jobs/45317733
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5018>
+
+2023-02-05 11:15:44 +0100  Carlos Rafael Giani <crg7475@mailbox.org>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavdemux.c:
+	  libav: Integrate FFmpeg's DSD support with GstDsd caps
+	  Code is partially based on the DSD of Robert Tiemann <rtie@gmx.de>:
+	  https://gitlab.freedesktop.org/rtiemann/gstreamer/-/tree/dsd
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3901>
+
+2023-05-15 08:57:43 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avvidec: Fix more deprecated symbol
+	  We only used these fields for debugging anyway
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4635>
+
+2023-05-15 08:49:06 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avvidec: Fix usage of deprecated field
+	  Since ffmpeg 6.0 frame_num is used instead of frame_number
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4635>
+
+2023-03-07 14:05:54 +0100  Stéphane Cerveau <scerveau@igalia.com>
+
+	* tests/meson.build:
+	  gstreamer-full: add full static support
+	  Allow a project to use gstreamer-full as a static library
+	  and link to create a binary without dependencies.
+	  Introduce the option 'gst-full-target-type' to
+	  select the build type, dynamic(default) or static.
+	  In gstreamer-full/static build configuration gstreamer (gst.c)
+	  needs the symbol gst_init_static_plugins which is defined
+	  in gstreamer-full.
+	  All the tests and examples are linking with gstreamer but the
+	  symbol gst_init_static_plugins is only defined in the gstreamer-full
+	  library. gstreamer-full can not be built first as it needs to know what plugins
+	  will be built.
+	  One option would be to build all the examples and tests after
+	  gstreamer-full as the tools.
+	  Disable tools build in subprojects too as it will be built at the end of
+	  build process.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4128>
 
 2023-05-12 09:50:04 +0300  Sebastian Dröge <sebastian@centricular.com>
 
@@ -79,36 +379,90 @@
 	  This can call into the decoder again from other threads and try to take
 	  the stream lock from there, which would cause a deadlock.
 	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2558
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4625>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4610>
 
-2023-04-12 00:31:17 +0100  Tim-Philipp Müller <tim@centricular.com>
+2022-11-08 17:31:36 -0500  U. Artie Eoff <ullysses.a.eoff@intel.com>
 
-	* meson.build:
-	  Back to development
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstav.c:
+	* ext/libav/gstav.h:
+	* ext/libav/gstavvidcmp.c:
+	* ext/libav/meson.build:
+	  gst-libav: add avvideocompare element
+	  The avvideocompare element compares two incoming video buffers using
+	  the specified comparison method (e.g. ssim or psnr).  The first
+	  video buffer is passthrough, unchanged.
+	  The comparison is calculated by using libav's ssim or psnr filters.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3366>
 
-=== release 1.22.2 ===
+2023-03-23 10:32:09 +0100  Stéphane Cerveau <scerveau@igalia.com>
 
-2023-04-11 17:29:28 +0100  Tim-Philipp Müller <tim@centricular.com>
+	* ext/libav/gstavmux.c:
+	  libav: set the frame rate values in ffmpeg stream context
+	  To avoid a default value to be used in mux.c+304, give the
+	  frame rate detected from the caps.
+	  Fix IVF header.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4248>
 
-	* NEWS:
-	* RELEASE:
-	* gst-libav.doap:
-	* meson.build:
-	  Release 1.22.2
+2023-03-22 12:52:08 +0100  Stéphane Cerveau <scerveau@igalia.com>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	  libav: add av1 to gst_ffmpeg_caps_to_codecid
+	  Restrict the stream-format to obu-stream
+	  and the alignment to "tu" and "frame" as "obu"
+	  is not properly supported by libav.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4248>
+
+2023-03-19 15:35:29 -0300  Thibault Saunier <tsaunier@igalia.com>
+
+	* docs/meson.build:
+	  doc: Avoid shelling out to hotdoc to generate plugins config files
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4479>
+
+2023-04-19 12:54:45 -0400  U. Artie Eoff <ullysses.a.eoff@intel.com>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	  gst-libav: map P010, VUYA, Y410, P012, Y212, and Y412
+	  P010 has been around for a long time.
+	  VUYX introduced in:
+	  https://git.ffmpeg.org/gitweb/ffmpeg.git/commit/cc5a5c986047d38b53c0f12a227b04487624e7cb
+	  P012, Y212, XV30 (Y410), and XV36 (Y412) introduced in:
+	  https://git.ffmpeg.org/gitweb/ffmpeg.git/commit/d75c4693fef51e8f0a1b88798530f4c5147ea906
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4454>
 
 2023-04-10 18:06:17 +0100  Tim-Philipp Müller <tim@centricular.com>
 
 	* ext/libav/gstavmux.c:
 	  avmux: fix element leak
 	  Fixes #2473
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4385>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4384>
 
 2023-04-10 17:59:21 +0100  Tim-Philipp Müller <tim@centricular.com>
 
 	* ext/libav/gstavdeinterlace.c:
 	  avdeinterlace: fix element leak
 	  Fixes #2473
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4385>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4384>
+
+2023-03-22 15:48:18 +0100  Tobias Rapp <t.rapp@noa-archive.com>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	  gst-libav: Update codec mapping for FFVHuff video
+	  Replaces the ad-hoc type string 'video/x-gst-av-ffvhuff' with
+	  'video/x-ffvhuff' for the avdec_ffvhuff and avenc_ffvhuff elements.
+	  Related to #2389.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4250>
+
+2023-03-15 18:59:56 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavdemux.c:
+	* ext/libav/gstavviddec.c:
+	  gst-libav: re-indent with GNU indent 2.2.12
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4182>
 
 2023-03-14 14:27:39 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
 
@@ -119,22 +473,7 @@
 	  the draining process, and blocks trying to get the video decoder stream lock
 	  already heald by the drain function.
 	  Fixes #2383
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4187>
-
-2023-03-04 16:13:04 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* meson.build:
-	  Back to development
-
-=== release 1.22.1 ===
-
-2023-03-04 13:42:32 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* NEWS:
-	* RELEASE:
-	* gst-libav.doap:
-	* meson.build:
-	  Release 1.22.1
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4171>
 
 2023-02-28 14:00:26 +0200  Sebastian Dröge <sebastian@centricular.com>
 
@@ -144,7 +483,7 @@
 	  As we don't use proper refcounting with AVPacket we have to manage this
 	  ourselves.
 	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2006
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4078>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4076>
 
 2023-02-13 17:02:01 -0500  U. Artie Eoff <ullysses.a.eoff@intel.com>
 
@@ -156,7 +495,15 @@
 	  7d09579190de (lavc 58.132.100).
 	  The AV_CODEC_CAP_AUTO_THREADS was finally removed in FFmpeg upstream
 	  commit 10c9a0874cb3 (lavc 59.63.100).
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3964>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3951>
+
+2023-01-24 20:19:06 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  gst-libav: drop use of GSlice allocator
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3784>
 
 2023-01-24 15:38:20 +0200  Sebastian Dröge <sebastian@centricular.com>
 
@@ -168,7 +515,7 @@
 	  calculating the DTS.
 	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1544
 	  again.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3808>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3780>
 
 2023-01-24 15:28:17 +0200  Sebastian Dröge <sebastian@centricular.com>
 
@@ -179,512 +526,13 @@
 	  This broke the MPEG-1 video encoder as it requires the framerate to be
 	  used for the timebase.
 	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1734
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3808>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3780>
 
-2023-01-25 16:46:42 +0000  Tim-Philipp Müller <tim@centricular.com>
+2023-01-23 23:04:53 +0000  Tim-Philipp Müller <tim@centricular.com>
 
 	* meson.build:
 	  Back to development
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3775>
 
 === release 1.22.0 ===
-
-2023-01-23 19:29:34 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* NEWS:
-	* RELEASE:
-	* gst-libav.doap:
-	* meson.build:
-	  Release 1.22.0
-
-=== release 1.21.90 ===
-
-2023-01-13 19:08:48 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* NEWS:
-	* RELEASE:
-	* gst-libav.doap:
-	* meson.build:
-	  Release 1.21.90
-
-2023-01-13 12:43:30 +0200  Sebastian Dröge <sebastian@centricular.com>
-
-	* ext/libav/gstavvidenc.c:
-	* ext/libav/gstavvidenc.h:
-	  avvidenc: Offset PTS to zero to fix bitrate control
-	  Otherwise ffmpeg's rate control algorithm will not work correctly as
-	  it is based on the absolute PTS values.
-	  Fixes https://gitlab.freedesktop.org/gstreamer/gst-libav/-/issues/91
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3718>
-
-2023-01-09 13:23:56 +0100  Guillaume Desmottes <guillaume.desmottes@onestream.live>
-
-	* ext/libav/gstavauddec.c:
-	  libav: avaudec: display flow return name instead of value
-	  More convenient to read in logs. gstavviddec already does it.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3700>
-
-2022-12-23 18:01:03 +0200  Sebastian Dröge <sebastian@centricular.com>
-
-	* ext/libav/gstavcodecmap.c:
-	* ext/libav/gstavvidenc.c:
-	  avvidenc: Set timebase in the ffmpeg context to nanoseconds and set framerate
-	  As we now actually use the timestamps from ffmpeg for timestamping the
-	  output we would lose a lot of accuracy if the framerate is used.
-	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1544
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3634>
-
-2022-12-20 14:10:01 +0200  Sebastian Dröge <sebastian@centricular.com>
-
-	* ext/libav/gstavviddec.c:
-	  avviddec: Disable AV1 decoder
-	  We have various elements for AV1 decoding, the ffmpeg one only works if
-	  hardware support is available and seems to require special signalling.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3610>
-
-2022-12-05 02:29:08 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* meson.build:
-	  Back to development
-
-=== release 1.21.3 ===
-
-2022-12-05 01:28:21 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* NEWS:
-	* RELEASE:
-	* gst-libav.doap:
-	* meson.build:
-	  Release 1.21.3
-
-2022-12-04 12:25:41 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* ChangeLog:
-	  Remove ChangeLog files from git repository
-	  This information is tracked fully in the git repository, so
-	  no point having the ChangeLog duplicate it, and it interferes
-	  with grepping the repository.
-	  We are going to create the ChangeLogs on the fly when generating
-	  tarballs going forward (with a limited history), since it's still
-	  valuable for tarball consumers to be able to easily see a list of
-	  recent changes.
-	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer-project/-/issues/73
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3521>
-
-2022-11-07 00:10:39 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* meson.build:
-	* scripts/gen-changelog.py:
-	  meson: Generate ChangeLog files for release tarballs on dist
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3521>
-
-2022-03-08 16:05:17 +0200  Sebastian Dröge <sebastian@centricular.com>
-
-	* ext/libav/gstavauddec.c:
-	* ext/libav/gstavviddec.c:
-	  av{aud,vid}dec: Report decoding errors to the base class
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1889>
-
-2022-11-24 17:39:50 +0000  Philippe Normand <philn@igalia.com>
-
-	* ext/libav/gstavviddec.c:
-	  avviddec: Report flow error when decoder refused packet
-	  In cases where an invalid input packet is submitted to the decoder we emit a
-	  warning but reporting the flow error upstream would also be useful. This came up
-	  with a case were the application interacts directly with the decoder, using a
-	  mechanism similar to GstHarness.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3463>
-
-2022-11-11 09:06:55 +0100  Edward Hervey <edward@centricular.com>
-
-	* ext/libav/gstavviddec.c:
-	  avviddec: Report a latency even without upstream framerate
-	  There are cases where upstream will not provide a framerate, or it won't be
-	  fixed. But if there is latency introduced by the decoder we do want to report
-	  it.
-	  Therefore use the framerate stored in the actual decoder, which will have a
-	  default.
-	  Fixes hangs when playing back such streams with decodebin3 (where the multiqueue
-	  will not have been informed of that downstream latency and not grow accordingly)
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3391>
-
-2022-11-12 09:54:31 +0100  Edward Hervey <edward@centricular.com>
-
-	* ext/libav/gstavvidenc.c:
-	  avvidenc: Don't leak AVPacket on EOF
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3390>
-
-2022-11-12 09:53:14 +0100  Edward Hervey <edward@centricular.com>
-
-	* ext/libav/gstavcfg.c:
-	  avcfg: Don't leak the support GArray when registering flag/enums
-	  * Only create it if we are attempting to put values in it
-	  * If we sucessfully registered the values, only free the GArray
-	  * IF we didn't, also free the backing memory
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3390>
-
-2022-11-12 10:02:15 +0100  Edward Hervey <edward@centricular.com>
-
-	* ext/libav/gstavvidenc.c:
-	  avvidenc: Don't leak filename
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3390>
-
-2022-11-08 02:08:08 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* meson.build:
-	  Back to development
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3358>
-
-=== release 1.21.2 ===
-
-2022-11-07 23:53:59 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* ChangeLog:
-	* NEWS:
-	* RELEASE:
-	* gst-libav.doap:
-	* meson.build:
-	  Release 1.21.2
-
-2022-11-07 23:53:57 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* ChangeLog:
-	  Update ChangeLogs for 1.21.2
-
-2022-11-04 14:17:39 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
-
-	* docs/gst_plugins_cache.json:
-	* ext/libav/gstavutils.c:
-	  avutils: Add missing space in doc
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3330>
-
-2022-11-04 14:15:34 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
-
-	* docs/gst_plugins_cache.json:
-	* ext/libav/gstavviddec.c:
-	  avviddec: Initialize std_compliance to default
-	  This was missed in the initial patch.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3330>
-
-2022-11-04 08:00:03 +0100  Edward Hervey <edward@centricular.com>
-
-	* ext/libav/gstavcfg.c:
-	  libav: avcfg: Avoid brittle comparision
-	  Subtracting a gint from another (or a guint from another) has no guarantees that
-	  it will result in a gint.
-	  Therefore do the actual comparision instead.
-	  Also use the *actual* type for comparing flags (the field value types are different)
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3319>
-
-2022-11-04 07:59:10 +0100  Edward Hervey <edward@centricular.com>
-
-	* ext/libav/gstavcfg.c:
-	  libav: avcfg: Don't leak duplicate enumvalue entries
-	  If we discard the duplicates, we also need to free the allocated strings.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3319>
-
-2022-11-02 11:09:17 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
-
-	* docs/gst_plugins_cache.json:
-	  doc: avviddec: Update plugin cache
-	  This is to add std-compliance property and GstFFMpegVidDec base class.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3311>
-
-2022-11-01 11:13:23 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
-
-	* ext/libav/gstav.c:
-	* ext/libav/gstav.h:
-	* ext/libav/gstavcodecmap.c:
-	* ext/libav/gstavcodecmap.h:
-	* ext/libav/gstavutils.h:
-	* ext/libav/gstavviddec.c:
-	* ext/libav/gstavviddec.h:
-	  avviddec: Introduce a class for shared properties
-	  Without a parent class,the documentation would need to be duplicated for
-	  every CODECs. This patch adds an abstract class in between GstVideoDecoder
-	  and the element.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3311>
-
-2022-11-01 09:35:11 -0400  Seungha Yang <seungha@centricular.com>
-
-	* ext/libav/gstavutils.c:
-	* ext/libav/gstavutils.h:
-	* ext/libav/gstavviddec.c:
-	* ext/libav/gstavviddec.h:
-	  avviddec: Expose std-compliance option
-	  Default compliance mode (i.e., FF_COMPLIANCE_NORMAL) might not
-	  strictly follow specification. This property will allow user
-	  to specifiy expected compliance mode.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3311>
-
-2022-10-26 16:30:31 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
-
-	* ext/libav/gstavviddec.c:
-	  avdec_h265: Fix endless renegoation with alternate interlacing
-	  The picture parameter picture->top_field_first is reused in this mode
-	  to signal the TOP fields. As a side effect, it will change every frame
-	  and current code assumed that if this changes then a renegotiation is
-	  needed. Fixed this by ignoring that change whenever we are decoding one field
-	  only.
-	  Fixes #1523
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3276>
-
-2022-10-26 10:44:01 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
-
-	* ext/libav/gstavviddec.c:
-	  avviddec: Avoid flushing on framerate changes
-	  A framerate change does not require flushing the decoder and causes
-	  issues with some specific fragmented files if the two fragments have
-	  different framerate.
-	  Fixes #1522
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3270>
-
-2022-10-18 11:37:30 +0000  Devin Anderson <danderson@microsoft.com>
-
-	* ext/libav/gstavdemux.c:
-	  gst-libav: Fix synchronization issues and errors created by the forwarding of segment events by demuxer.
-	  In order to play nicely with `ffmpeg`, demuxers in `gst-libav` have to make
-	  buffers available to `ffmpeg` while taking the blocking I/O model in `ffmpeg`
-	  into account, which results in buffers not being sent downstream until `ffmpeg`
-	  has processed them in its separate thread.
-	  In constrast, many `gstreamer` events are simply forwarded downstream.
-	  Currently `GST_EVENT_SEGMENT` events are forwarded downstream without any
-	  processing, which can potentially result in:
-	  * `GST_EVENT_SEGMENT` events being out of sync with buffers
-	  * `GST_EVENT_SEGMENT` events going out that are incorrect because they apply
-	  to data seen by the demuxer, but not necessarily seen by downstream elements
-	  I came across this bug when I was attempting to enable G723.1 demuxing/decoding
-	  using the G723.1 demuxer and decoder provided by `ffmpeg`.  I wrote tests to
-	  verify support for the functionality, and found that, in push mode,
-	  `GST_EVENT_SEGMENT` events pushed to the demuxer by the upstream `filesrc`
-	  element would be forwarded to the decoder without modification, resulting in
-	  an internal data streaming error.  With this patch, tests work in both push and
-	  pull mode.
-	  This patch solves the problem by disabling the forwarding of
-	  `GST_EVENT_SEGMENT` events downstream (an initial `GST_EVENT_SEGMENT` event is
-	  still pushed downstream by the demuxer).  It's possible there's a better way to
-	  do this, but, having looked at how a few different `gstreamer` demuxers deal
-	  with `GST_EVENT_SEGMENT` events, it seems like the processing is somewhat
-	  specific to the demuxer implementation, whereas `gst-libav` has one general way
-	  of handling the situation for any `ffmpeg` demuxer.  Perhaps there's a better
-	  way to solve this using the `ffmpeg` API to take advantage of specific demuxer
-	  details.  IDK.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3218>
-
-2022-10-04 21:27:36 +0200  Mathieu Duponchelle <mathieu@centricular.com>
-
-	* ext/libav/gstavauddec.c:
-	  avauddec: address regression with WMA files ..
-	  By outputting lead-in samples that FFmpeg now would like us to ignore,
-	  and discarding trailing samples that it would now like us to output.
-	  See https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1474
-	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1348
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3117>
-
-2022-10-04 03:57:31 +0100  Tim-Philipp Müller <tim@centricular.com>
-
-	* meson.build:
-	  Back to development
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3115>
-
-=== release 1.21.1 ===
-
-2022-10-04 01:14:01 +0100  Tim-Philipp Müller <tim@centricular.com>
-
-	* ChangeLog:
-	* NEWS:
-	* RELEASE:
-	* gst-libav.doap:
-	* meson.build:
-	  Release 1.21.1
-
-2022-10-04 01:13:59 +0100  Tim-Philipp Müller <tim@centricular.com>
-
-	* ChangeLog:
-	  Update ChangeLogs for 1.21.1
-
-2022-09-29 12:42:21 +0100  Tim-Philipp Müller <tim@centricular.com>
-
-	* ext/libav/gstavauddec.c:
-	  avauddec: fix unnecessary reconfiguration if the audio layout isn't specified
-	  It would constantly want to renegotiate (and spam the debug log) even
-	  though the channel layout hasn't actually changed. We use the same
-	  fallback in gst_ffmpegauddec_negotiate() already.
-	  This happens with WMA files for example.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3103>
-
-2022-09-21 19:19:45 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
-
-	* meson.build:
-	  meson: Use implicit builtin dirs in pkgconfig generation
-	  Starting with Meson 0.62, meson automatically populates the variables
-	  list in the pkgconfig file if you reference builtin directories in the
-	  pkgconfig file (whether via a custom pkgconfig variable or elsewhere).
-	  We need this, because ${prefix}/libexec is a hard-coded value which is
-	  incorrect on, for example, Debian.
-	  Bump requirement to 0.62, and remove version compares that retained
-	  support for older Meson versions.
-	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1245
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3061>
-
-2022-08-26 08:43:34 -0400  Thibault Saunier <tsaunier@igalia.com>
-
-	* docs/gst_plugins_cache.json:
-	  Build documentation for rust plugins
-	  - Update the docker image we use, starting using the standard one adding
-	  `gtk4-doc` as required by rust plugins
-	  - Update the plugins_doc_caches as required, some more plugins are built
-	  with the new image
-	  - Install ninja from pip as the version from F31 is too old
-	  - Avoid buildings all GSreamer plugins when building the doc as it takes
-	  time and resources for no good reason
-	  - Stop linking to `GInstanceInitFunc` as it is not present in latest GLib
-	  documentation, leading to warnings in hotdoc.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2954>
-
-2022-08-29 10:17:45 -0400  Thibault Saunier <tsaunier@igalia.com>
-
-	* docs/meson.build:
-	  doc: Do not build plugins to build the doc
-	  It is not actually necessary
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2954>
-
-2021-03-24 14:20:18 -0500  Zebediah Figura <z.figura12@gmail.com>
-
-	* meson.build:
-	  meson: Build with -Wl,-z,nodelete to prevent unloading of dynamic libraries and plugins
-	  GLib made the unfortunate decision to prevent libgobject from ever being
-	  unloaded, which means that now any library which registers a static type
-	  can't ever be unloaded either (and any library that depends on those,
-	  ad nauseam).
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/778>
-
-2022-09-01 15:11:31 -0400  Thibault Saunier <tsaunier@igalia.com>
-
-	* ext/libav/meson.build:
-	  meson: Call pkgconfig.generate in the loop where we declare plugins dependencies
-	  Removing some copy pasted code
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2970>
-
-2022-09-01 11:51:48 -0400  Thibault Saunier <tsaunier@igalia.com>
-
-	* docs/meson.build:
-	  meson: Namespace the plugins_doc_dep/libraries variables
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2970>
-
-2022-08-31 18:44:14 -0400  Thibault Saunier <tsaunier@igalia.com>
-
-	* meson.build:
-	  meson: Rename plugins list and make them "dependency" objects
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2970>
-
-2022-05-31 15:18:03 +0200  Stéphane Cerveau <scerveau@collabora.com>
-
-	* docs/meson.build:
-	* meson.build:
-	  docs: disable in static build
-	  Following gst-plugins-base, disable docs if static_build
-	  in:
-	  - gstreamer
-	  - gst-plugins-good
-	  - gst-plugins-ugly
-	  - gst-libav
-	  - gstreamer-vaapi
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2529>
-
-2022-07-07 22:16:30 +0900  Seungha Yang <seungha@centricular.com>
-
-	* ext/libav/gstavcfg.c:
-	  libav: Fix for APNG encoder property registration
-	  The AVClass name of Animated PNG in FFmpeg 5.x is "(A)PNG"
-	  and it will be converted to "-a-png" through
-	  g_ascii_strdown() and g_strcanon(). But GLib disallow leading '-'
-	  character for a GType name. Strip leading '-' to workaround it.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2724>
-
-2022-06-29 10:55:13 +0100  Tim-Philipp Müller <tim@centricular.com>
-
-	* meson.build:
-	  coding style: allow declarations after statement
-	  See https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1243/
-	  and https://gitlab.freedesktop.org/gstreamer/gstreamer-project/-/issues/78
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2683>
-
-2022-06-08 19:18:48 +0300  Vivia Nikolaidou <vivia@ahiru.eu>
-
-	* ext/libav/gstavviddec.c:
-	  avviddec, video.c, h265parse: Workaround for broken field-based interlaced encoders
-	  Some encoders (e.g. Makito) have H265 field-based interlacing, but then
-	  also specify an 1:2 pixel aspect ratio. That makes it kind-of work with
-	  decoders that don't properly support field-based decoding, but makes us
-	  end up with the wrong aspect ratio if we implement everything properly.
-	  As a workaround, detect 1:2 pixel aspect ratio for field-based
-	  interlacing, and check if making that 1:1 would make the new display
-	  aspect ratio common. In that case, we override it with 1:1.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2577>
-
-2022-04-15 16:38:46 +0200  Guillaume Desmottes <guillaume.desmottes@onestream.live>
-
-	* ext/libav/gstavviddec.c:
-	  libav: fix frame leak on negotiation error
-	  The function owns a reference on the frame. Drop it if negotiation
-	  failed as we are already doing for the other error cases.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2196>
-
-2022-04-04 23:32:56 +0200  Fabrice Fontaine <fontaine.fabrice@gmail.com>
-
-	* meson.build:
-	  gst-libav: fix build on systems without C++ compiler
-	  Fix the following build failure on systems without C++ compiler:
-	  The following exception(s) were encountered:
-	  Running "/nvmedata/autobuild/instance-9/output-1/host/bin/or1k-buildroot-linux-musl-g++ --version" gave "[Errno 2] No such file or directory: '/nvmedata/autobuild/instance-9/output-1/host/bin/or1k-buildroot-linux-musl-g++'"
-	  Fixes:
-	  - http://autobuild.buildroot.org/results/8ac0ba5eaaf7571857b4d8cfabf1488d640dc59a
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2112>
-
-2022-03-29 09:36:06 +0200  Edward Hervey <edward@centricular.com>
-
-	* ext/libav/gstavviddec.c:
-	  avviddec: Remove vc1/wmv3 override
-	  FFMPEG 5+ doesn't allow overriding the codec anymore (causes a segfault if you
-	  attempt to do that). But the best part is ... that with the current caps
-	  implementation in pad template and gst_ffmpeg_caps_to_codecid() we would never
-	  replace it by anything different than the existing codec id.
-	  Fixes #1054
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2052>
-
-2022-03-18 13:42:27 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
-
-	* meson.build:
-	  meson: Bump all meson requirements to 0.60
-	  Lots of new warnings ever since
-	  https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1934
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1977>
-
-2021-10-05 13:43:50 +0300  Sebastian Dröge <sebastian@centricular.com>
-
-	* ext/libav/gstavaudenc.c:
-	  avaudenc: Add support for AV_PKT_DATA_SKIP_SAMPLES side data
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1028>
-
-2019-09-10 17:30:07 +0200  Carlos Rafael Giani <crg7475@mailbox.org>
-
-	* ext/libav/gstavauddec.c:
-	  avauddec: Add clipping meta support for gapless playback
-	  Co-authored-by: Sebastian Dröge <sebastian@centricular.com>
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1028>
-
-2021-10-01 20:27:28 +0900  Seungha Yang <seungha@centricular.com>
-
-	* meson.build:
-	  meson: Do hard build error for some MSVC warnings
-	  Handle various MSVC warnings as errors for development version.
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1006>
-
-2022-02-04 11:15:47 +0000  Tim-Philipp Müller <tim@centricular.com>
-
-	* meson.build:
-	  Back to development
-	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1635>
-
-=== release 1.20.0 ===
 
