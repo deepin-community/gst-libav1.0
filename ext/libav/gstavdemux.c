@@ -30,6 +30,7 @@
 /* #include <ffmpeg/avi.h> */
 #include <gst/gst.h>
 #include <gst/base/gstflowcombiner.h>
+#include <gst/audio/gstdsd.h>
 
 #include "gstav.h"
 #include "gstavcodecmap.h"
@@ -1099,27 +1100,27 @@ static const struct
   const gchar *gst_tag_name;
 } tagmapping[] = {
   {
-  "album", GST_TAG_ALBUM}, {
-  "album_artist", GST_TAG_ALBUM_ARTIST}, {
-  "artist", GST_TAG_ARTIST}, {
-  "comment", GST_TAG_COMMENT}, {
-  "composer", GST_TAG_COMPOSER}, {
-  "copyright", GST_TAG_COPYRIGHT},
-      /* Need to convert ISO 8601 to GstDateTime: */
+      "album", GST_TAG_ALBUM}, {
+      "album_artist", GST_TAG_ALBUM_ARTIST}, {
+      "artist", GST_TAG_ARTIST}, {
+      "comment", GST_TAG_COMMENT}, {
+      "composer", GST_TAG_COMPOSER}, {
+      "copyright", GST_TAG_COPYRIGHT},
+  /* Need to convert ISO 8601 to GstDateTime: */
   {
-  "creation_time", GST_TAG_DATE_TIME},
-      /* Need to convert ISO 8601 to GDateTime: */
+      "creation_time", GST_TAG_DATE_TIME},
+  /* Need to convert ISO 8601 to GDateTime: */
   {
-  "date", GST_TAG_DATE_TIME}, {
-  "disc", GST_TAG_ALBUM_VOLUME_NUMBER}, {
-  "encoder", GST_TAG_ENCODER}, {
-  "encoded_by", GST_TAG_ENCODED_BY}, {
-  "genre", GST_TAG_GENRE}, {
-  "language", GST_TAG_LANGUAGE_CODE}, {
-  "performer", GST_TAG_PERFORMER}, {
-  "publisher", GST_TAG_PUBLISHER}, {
-  "title", GST_TAG_TITLE}, {
-  "track", GST_TAG_TRACK_NUMBER}
+      "date", GST_TAG_DATE_TIME}, {
+      "disc", GST_TAG_ALBUM_VOLUME_NUMBER}, {
+      "encoder", GST_TAG_ENCODER}, {
+      "encoded_by", GST_TAG_ENCODED_BY}, {
+      "genre", GST_TAG_GENRE}, {
+      "language", GST_TAG_LANGUAGE_CODE}, {
+      "performer", GST_TAG_PERFORMER}, {
+      "publisher", GST_TAG_PUBLISHER}, {
+      "title", GST_TAG_TITLE}, {
+      "track", GST_TAG_TRACK_NUMBER}
 };
 
 static const gchar *
@@ -1574,6 +1575,36 @@ gst_ffmpegdemux_loop (GstFFMpegDemux * demux)
     GST_DEBUG_OBJECT (demux, "marking DISCONT");
     GST_BUFFER_FLAG_SET (outbuf, GST_BUFFER_FLAG_DISCONT);
     stream->discont = FALSE;
+  }
+
+  /* If we are demuxing planar DSD data, add the necessary
+   * meta to inform downstream about the planar layout. */
+  switch (avstream->codecpar->codec_id) {
+    case AV_CODEC_ID_DSD_LSBF_PLANAR:
+    case AV_CODEC_ID_DSD_MSBF_PLANAR:
+    {
+      int channel_idx;
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 28, 100)
+      const int num_channels = avstream->codecpar->ch_layout.nb_channels;
+#else
+      int num_channels = avstream->codecpar->channels;
+#endif
+      int num_bytes_per_channel = pkt.size / num_channels;
+      GstDsdPlaneOffsetMeta *plane_ofs_meta;
+
+      plane_ofs_meta = gst_buffer_add_dsd_plane_offset_meta (outbuf,
+          num_channels, num_bytes_per_channel, NULL);
+
+      for (channel_idx = 0; channel_idx < num_channels; ++channel_idx) {
+        plane_ofs_meta->offsets[channel_idx] =
+            num_bytes_per_channel * channel_idx;
+      }
+
+      break;
+    }
+
+    default:
+      break;
   }
 
   GST_DEBUG_OBJECT (demux,
@@ -2146,15 +2177,16 @@ gst_ffmpegdemux_register (GstPlugin * plugin)
         !strcmp (in_plugin->name, "4xm") ||
         !strcmp (in_plugin->name, "yuv4mpegpipe") ||
         !strcmp (in_plugin->name, "pva") ||
-        !strcmp (in_plugin->name, "mpc") ||
-        !strcmp (in_plugin->name, "mpc8") ||
         !strcmp (in_plugin->name, "ivf") ||
         !strcmp (in_plugin->name, "brstm") ||
         !strcmp (in_plugin->name, "bfstm") ||
         !strcmp (in_plugin->name, "gif") ||
-        !strcmp (in_plugin->name, "dsf") || !strcmp (in_plugin->name, "iff"))
+        !strcmp (in_plugin->name, "dsf") || !strcmp (in_plugin->name, "iff")) {
       rank = GST_RANK_MARGINAL;
-    else {
+    } else if (!strcmp (in_plugin->name, "mpc") ||
+        !strcmp (in_plugin->name, "mpc8")) {
+      rank = GST_RANK_SECONDARY;
+    } else {
       GST_DEBUG ("ignoring %s", in_plugin->name);
       rank = GST_RANK_NONE;
       continue;

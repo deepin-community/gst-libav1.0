@@ -484,7 +484,7 @@ static void
 gst_ffmpegvidenc_free_avpacket (gpointer pkt)
 {
   av_packet_unref ((AVPacket *) pkt);
-  g_slice_free (AVPacket, pkt);
+  g_free (pkt);
 }
 
 typedef struct
@@ -500,7 +500,7 @@ buffer_info_free (void *opaque, guint8 * data)
 
   gst_video_frame_unmap (&info->vframe);
   gst_buffer_unref (info->buffer);
-  g_slice_free (BufferInfo, info);
+  g_free (info);
 }
 
 static enum AVStereo3DType
@@ -569,11 +569,19 @@ gst_ffmpegvidenc_send_frame (GstFFMpegVidEnc * ffmpegenc,
   gst_ffmpegvidenc_add_cc (frame->input_buffer, picture);
 
   if (GST_VIDEO_INFO_IS_INTERLACED (&ffmpegenc->input_state->info)) {
-    picture->interlaced_frame = TRUE;
-    picture->top_field_first =
+    const gboolean top_field_first =
         GST_BUFFER_FLAG_IS_SET (frame->input_buffer, GST_VIDEO_BUFFER_FLAG_TFF)
         || GST_VIDEO_INFO_FIELD_ORDER (&ffmpegenc->input_state->info) ==
         GST_VIDEO_FIELD_ORDER_TOP_FIELD_FIRST;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 31, 100)
+    picture->flags |= AV_FRAME_FLAG_INTERLACED;
+    if (top_field_first) {
+      picture->flags |= AV_FRAME_FLAG_TOP_FIELD_FIRST;
+    }
+#else
+    picture->interlaced_frame = TRUE;
+    picture->top_field_first = top_field_first;
+#endif
     picture->repeat_pict =
         GST_BUFFER_FLAG_IS_SET (frame->input_buffer, GST_VIDEO_BUFFER_FLAG_RFF);
   }
@@ -591,14 +599,14 @@ gst_ffmpegvidenc_send_frame (GstFFMpegVidEnc * ffmpegenc,
   if (GST_VIDEO_CODEC_FRAME_IS_FORCE_KEYFRAME (frame))
     picture->pict_type = AV_PICTURE_TYPE_I;
 
-  buffer_info = g_slice_new0 (BufferInfo);
+  buffer_info = g_new0 (BufferInfo, 1);
   buffer_info->buffer = gst_buffer_ref (frame->input_buffer);
 
   if (!gst_video_frame_map (&buffer_info->vframe, info, frame->input_buffer,
           GST_MAP_READ)) {
     GST_ERROR_OBJECT (ffmpegenc, "Failed to map input buffer");
     gst_buffer_unref (buffer_info->buffer);
-    g_slice_free (BufferInfo, buffer_info);
+    g_free (buffer_info);
     gst_video_codec_frame_unref (frame);
     goto done;
   }
@@ -631,9 +639,16 @@ gst_ffmpegvidenc_send_frame (GstFFMpegVidEnc * ffmpegenc,
     GST_ERROR_OBJECT (ffmpegenc, "PTS is going backwards");
     picture->pts = AV_NOPTS_VALUE;
   } else {
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 31, 100)
+    const gint ticks_per_frame = (ffmpegenc->context->codec_descriptor
+        && ffmpegenc->context->
+        codec_descriptor->props & AV_CODEC_PROP_FIELDS) ? 2 : 1;
+#else
+    const gint ticks_per_frame = ffmpegenc->context->ticks_per_frame;
+#endif
     picture->pts =
         gst_ffmpeg_time_gst_to_ff ((frame->pts - ffmpegenc->pts_offset) /
-        ffmpegenc->context->ticks_per_frame, ffmpegenc->context->time_base);
+        ticks_per_frame, ffmpegenc->context->time_base);
   }
 
 send_frame:
@@ -677,15 +692,15 @@ gst_ffmpegvidenc_receive_packet (GstFFMpegVidEnc * ffmpegenc,
 
   *got_packet = FALSE;
 
-  pkt = g_slice_new0 (AVPacket);
+  pkt = g_new0 (AVPacket, 1);
 
   res = avcodec_receive_packet (ffmpegenc->context, pkt);
 
   if (res == AVERROR (EAGAIN)) {
-    g_slice_free (AVPacket, pkt);
+    g_free (pkt);
     goto done;
   } else if (res == AVERROR_EOF) {
-    g_slice_free (AVPacket, pkt);
+    g_free (pkt);
     ret = GST_FLOW_EOS;
     goto done;
   } else if (res < 0) {
