@@ -442,7 +442,9 @@ install_opts (GObjectClass * gobject_class, const AVClass ** obj, guint prop_id,
         break;
         /* TODO: didn't find options for the video encoders with
          * the following type, add support if needed */
+#if LIBAVUTIL_VERSION_MAJOR < 59
       case AV_OPT_TYPE_CHANNEL_LAYOUT:
+#endif
       case AV_OPT_TYPE_COLOR:
       case AV_OPT_TYPE_VIDEO_RATE:
       case AV_OPT_TYPE_SAMPLE_FMT:
@@ -486,10 +488,8 @@ gst_ffmpeg_cfg_install_properties (GObjectClass * klass, AVCodec * in_plugin,
       install_opts ((GObjectClass *) klass, &ctx->av_class, prop_id, flags,
       " (Generic codec option, might have no effect)", generic_overrides);
 
-  if (ctx) {
-    gst_ffmpeg_avcodec_close (ctx);
-    av_free (ctx);
-  }
+  if (ctx)
+    avcodec_free_context (&ctx);
 }
 
 static gint
