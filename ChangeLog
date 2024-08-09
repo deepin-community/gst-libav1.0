@@ -1,3 +1,223 @@
+=== release 1.24.6 ===
+
+2024-07-29 16:41:37 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.24.6
+
+2024-07-12 17:09:15 +0200  Ruben Gonzalez <rgonzalez@fluendo.com>
+
+	* ext/libav/gstavcodecmap.c:
+	* ext/libav/gstavcodecmap.h:
+	* ext/libav/gstavmux.c:
+	  avmux: Fix crash when muxer doesn't get codecid
+	  gst_ffmpeg_formatid_get_codecids from gst_ffmpegmux_base_init to gst_ffmpegmux_base_init
+	  FFmpeg 7.0 included new muxer rcwt for Raw Captions with Time
+	  (RCWT). Commit [1].  GStreamer couldn't get sink caps for muxer it.
+	  Calling gst_ffmpeg_formatid_get_codecids in gst_ffmpegmux_register to
+	  avoid create muxer without pad templates.
+	  [1] https://github.com/FFmpeg/FFmpeg/commit/3525544e48
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7222>
+
+2024-07-16 20:49:13 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/libav/gstavauddec.c:
+	  avauddec: Fix crash on stop()
+	  GstFFMpegAudDec.context can be nullptr if decoder got closed
+	  without opening new context. Note that we don't need to clear
+	  AVCodecContext.extradata there since avcodec_free_context()
+	  will do clear the data if needed.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7184>
+
+2024-05-01 18:05:35 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* ext/libav/gstavcodecmap.c:
+	  typefind: Add typefinders for formats that were previously available via ffmpeg
+	  Co-Authored-By: Matthew Waters <matthew@centricular.com>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-05-01 17:02:38 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	* ext/libav/gstavvidenc.h:
+	  avvidenc: Make sure to pass always increasing PTS to the encoder
+	  All MPEG1/2/4-based encoders at least are ignoring input frames if
+	  backwards PTS or PTS that are equal to the previous one are passed in.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-05-01 16:50:30 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Only use 2 ticks per frame if decoding interlaced video
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-05-01 16:39:00 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: Set the DTS to 0 if it is negative, not the PTS
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-05-01 16:32:16 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavvidenc.c:
+	  avvidenc: Only use 2 ticks per frame if encoding interlaced video
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3518
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-05-01 14:12:25 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavmux.c:
+	  avmux: Reset input context to NULL after closing in the muxer
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-05-01 14:10:59 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: Fix leak of demuxer input context in error cases
+	  Also simplify context lifetime management a bit.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-05-01 13:56:56 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstav.c:
+	* ext/libav/gstav.h:
+	* ext/libav/gstavauddec.c:
+	* ext/libav/gstavauddec.h:
+	* ext/libav/gstavaudenc.c:
+	* ext/libav/gstavaudenc.h:
+	* ext/libav/gstavcfg.c:
+	* ext/libav/gstavdeinterlace.c:
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavviddec.h:
+	* ext/libav/gstavvidenc.c:
+	* ext/libav/gstavvidenc.h:
+	  libav: Update AVCodecContext lifetime to work properly with ffmpeg 7
+	  avcodec_close() is deprecated and it's not supported anymore to re-open
+	  a codec, so we only ever allocate the codec in set_format() now and
+	  always free it after usage.
+	  As part of this, also fix various memory leaks in related code paths.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-05-14 10:27:36 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avviddec: Rename variables and fuse function
+	  * gst_ffmpegviddec_frame() is the only caller of gst_ffmpegviddec_video_frame()
+	  and has the same signature. Just move the checks into a single function and
+	  use that.
+	  * Make it clear which frames are the input and output ones in
+	  gst_ffmpegviddec_video_frame() to make issues like the one fixed in the previous
+	  commit more obvious.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-05-01 12:24:08 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavprotocol.c:
+	  libav: Fix signature of avprotocol write function for ffmpeg 7
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-04-02 10:17:56 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/libav/gstavdemux.c:
+	  avdemux: Remove typefinder implementation
+	  Direct access to AVInputFormat::read_probe() is not possible anymore
+	  with ffmpeg 7.0, and the usefulness of this typefinder seems limited
+	  anyway. An alternative implementation around av_probe_input_format3() or
+	  similar would be possible but it would be going over all possible ffmpeg
+	  probes at once.
+	  Having a typefinder here means that basically every application will
+	  load the gst-libav plugin when typefinding is necessary, which has
+	  unnecessary performance impacts. If a typefinder from here was indeed
+	  missing from typefindfunctions in gst-plugins-base then it would be
+	  better to add it there directly.
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3378
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7148>
+
+2024-06-20 13:02:19 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.5
+
+=== release 1.24.5 ===
+
+2024-06-20 12:54:15 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.24.5
+
+2024-05-29 13:51:27 +0300  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.4
+
+=== release 1.24.4 ===
+
+2024-05-29 13:44:50 +0300  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.24.4
+
+2024-05-14 09:52:30 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/libav/gstavviddec.c:
+	  avvidec: Fix dropping wrong "ghost" frames
+	  This fixes the code regarding dropping "ghost frames", that is to say input
+	  frames which ended up not producing any decoded frame.
+	  The iteration itself makes sense.. but it was stopping at the "input" frame and
+	  not the decoded frame we just got back.
+	  When dealing with I-frame codecs, ffmpeg will decode frames in separate frames,
+	  so there is no guarantee that they are decoding in order.
+	  Fixes playback issues with such codecs
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6845>
+
+2024-04-30 00:36:59 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.3
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6772>
+
+=== release 1.24.3 ===
+
+2024-04-30 00:15:23 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-libav.doap:
+	* meson.build:
+	  Release 1.24.3
+
+2024-03-12 12:14:57 -0400  U. Artie Eoff <ullysses.a.eoff@intel.com>
+
+	* ext/libav/gstavcfg.c:
+	  libav: guard dropped AV_OPT_TYPE_CHANNEL_LAYOUT
+	  The FF_API_OLD_CHANNEL_LAYOUT api was dropped in upstream:
+	  https://git.ffmpeg.org/gitweb/ffmpeg.git/commit/65ddc7498824
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6632>
+
+2024-03-12 12:04:01 -0400  U. Artie Eoff <ullysses.a.eoff@intel.com>
+
+	* ext/libav/gstavviddec.c:
+	* ext/libav/gstavvidenc.c:
+	  libav: guard dropped AV_CODEC_ID_AYUV api
+	  The FF_API_AYUV_CODECID api was dropped in upstream:
+	  https://git.ffmpeg.org/gitweb/ffmpeg.git/commit/9ee59b63f5ea
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6632>
+
+2024-04-10 00:04:02 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.2
+
 === release 1.24.2 ===
 
 2024-04-09 21:48:55 +0100  Tim-Philipp Müller <tim@centricular.com>
